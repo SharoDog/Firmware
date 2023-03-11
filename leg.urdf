@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<robot name="visual">
+
+	<link name="base_link">
+		<visual>
+			<origin xyz="0 0 0" rpy="0 0 0"/>
+		</visual>
+	</link>
+
+	<joint name="base_to_shoulder" type="revolute">
+		<parent link="base_link"/>
+		<child link="shoulder"/>
+		<origin xyz="0 0 0" rpy="0 0 0"/>
+		<axis xyz="1 0 0" />
+	</joint>
+
+	<link name="shoulder">
+		<visual>
+		  <origin rpy="0 0 0" xyz="0 0 0"/>
+		</visual>
+	</link>
+
+	<joint name="shoulder_to_femur" type="revolute">
+		<parent link="shoulder"/>
+		<child link="femur"/>
+		<origin xyz="0 0 0" rpy="0 0 0"/>
+		<axis xyz="0 0 1" />
+	</joint>
+
+	<link name="femur">
+		<visual>
+		  <origin rpy="0 0 0" xyz="0 0 0"/>
+		</visual>
+	</link>
+
+	<link name="tibia">
+		<visual>
+		  <origin rpy="0 0 0" xyz="0 0 0"/>
+		</visual>
+	</link>
+
+	<joint name="femur_to_tibia" type="revolute">
+		<parent link="femur"/>
+		<child link="tibia"/>
+		<origin xyz="10 0 0" rpy="0 0 0"/>
+		<axis xyz="0 0 1" />
+	</joint>
+</robot>
+
