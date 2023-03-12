@@ -19,34 +19,84 @@ class Controller():
         self.angles = [[0, 0, math.radians(self.femur_initial), math.radians(
             self.tibia_initial), 0] for i in range(4)]
         # walk
-        line_nodes = np.asfortranarray([
-            [5.0, -5.0],
-            [-16.0, -16.0],
+        front_line_nodes = np.asfortranarray([
+            [7.0, -3.0],
+            [-17.0, -17.0],
             [0.0, 0.0]
         ])
-        line = bezier.Curve(line_nodes, degree=1)
-        line_path = np.transpose(line.evaluate_multi(np.linspace(
+        front_line = bezier.Curve(front_line_nodes, degree=1)
+        front_line_path = np.transpose(front_line.evaluate_multi(np.linspace(
             0.0, 1.0, 50)))
 
-        curve_nodes = np.asfortranarray([
-            [-5.0, 0.0, 5.0],
-            [-16.0, -12.0, -16.0],
+        front_curve_nodes = np.asfortranarray([
+            [-3.0, 2.0, 7.0],
+            [-17.0, -13.0, -17.0],
             [0.0, 0.0, 0.0],
         ])
 
-        curve = bezier.Curve(curve_nodes, degree=2)
-        curve_path = np.transpose(curve.evaluate_multi(np.linspace(
+        front_curve = bezier.Curve(front_curve_nodes, degree=2)
+        front_curve_path = np.transpose(
+            front_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+
+        back_line_nodes = np.asfortranarray([
+            [3.0, -9.0],
+            [-15.0, -16.0],
+            [0.0, 0.0]
+        ])
+        back_line = bezier.Curve(back_line_nodes, degree=1)
+        back_line_path = np.transpose(back_line.evaluate_multi(np.linspace(
             0.0, 1.0, 50)))
+
+        back_curve_nodes = np.asfortranarray([
+            [-9.0, -2.0, 3.0],
+            [-16.0, -12.0, -15.0],
+            [0.0, 0.0, 0.0],
+        ])
+
+        back_curve = bezier.Curve(back_curve_nodes, degree=2)
+        back_curve_path = np.transpose(
+            back_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
         self.points = {
             'lie': [[[0.0, -4.0, 0.0] for _ in range(4)]],
             'sit': [[[-5.0, -17.5, 0.0] for _ in range(2)]
                     + [[0.0, -4.0, 0.0] for _ in range(2)]],
             'stand': [[[0.0, -15.0, 0.0] for _ in range(4)]],
-            'forward': np.transpose([np.concatenate([line_path, curve_path]),
-                                     np.concatenate([curve_path, line_path]),
-                                     np.concatenate([curve_path, line_path]),
-                                     np.concatenate([line_path, curve_path]),
-                                     ], axes=[1, 0, 2])
+            'forward': np.transpose([np.concatenate(
+                [front_line_path, front_curve_path]),
+                np.concatenate(
+                [front_curve_path, front_line_path]),
+                np.concatenate(
+                [back_curve_path, back_line_path]),
+                np.concatenate(
+                [back_line_path, back_curve_path]),
+            ], axes=[1, 0, 2]),
+            'backward': np.transpose([np.flip(np.concatenate(
+                [front_line_path, front_curve_path]), axis=0),
+                np.flip(np.concatenate(
+                    [front_curve_path, front_line_path]), axis=0),
+                np.flip(np.concatenate(
+                    [back_curve_path, back_line_path]), axis=0),
+                np.flip(np.concatenate(
+                    [back_line_path, back_curve_path]), axis=0),
+            ], axes=[1, 0, 2]),
+            'right': np.transpose([np.flip(np.concatenate(
+                [front_line_path, front_curve_path]), axis=1),
+                np.flip(np.concatenate(
+                    [front_curve_path, front_line_path]), axis=1),
+                np.flip(np.concatenate(
+                    [back_curve_path, back_line_path]), axis=1),
+                np.flip(np.concatenate(
+                    [back_line_path, back_curve_path]), axis=1),
+            ], axes=[1, 0, 2]),
+            'left': np.transpose([np.flip(np.concatenate(
+                [front_line_path, front_curve_path])),
+                np.flip(np.concatenate(
+                    [front_curve_path, front_line_path])),
+                np.flip(np.concatenate(
+                    [back_curve_path, back_line_path])),
+                np.flip(np.concatenate(
+                    [back_line_path, back_curve_path])),
+            ], axes=[1, 0, 2])
         }
         self.calc_paths()
         self.kit = ServoKit(channels=16)
@@ -60,7 +110,6 @@ class Controller():
             angles = [[0, 0, math.radians(self.femur_initial), math.radians(
                 self.tibia_initial), 0] for i in range(4)]
             for p in points:
-                print('P:', p)
                 for i in range(4):
                     angles[i] = self.chain.inverse_kinematics(
                         p[i], initial_position=angles[i])
