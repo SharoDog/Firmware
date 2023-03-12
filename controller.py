@@ -1,6 +1,8 @@
 from ikpy.chain import Chain
 import math
 from adafruit_servokit import ServoKit
+import numpy as np
+import bezier
 
 
 class Controller():
@@ -16,12 +18,35 @@ class Controller():
         self.tibia_offset = {'fr': 90, 'fl': 80, 'br': 90, 'bl': 80}
         self.angles = [[0, 0, math.radians(self.femur_initial), math.radians(
             self.tibia_initial), 0] for i in range(4)]
+        # walk
+        line_nodes = np.asfortranarray([
+            [5.0, -5.0],
+            [-16.0, -16.0],
+            [0.0, 0.0]
+        ])
+        line = bezier.Curve(line_nodes, degree=1)
+        line_path = np.transpose(line.evaluate_multi(np.linspace(
+            0.0, 1.0, 50)))
 
+        curve_nodes = np.asfortranarray([
+            [-5.0, 0.0, 5.0],
+            [-16.0, -12.0, -16.0],
+            [0.0, 0.0, 0.0],
+        ])
+
+        curve = bezier.Curve(curve_nodes, degree=2)
+        curve_path = np.transpose(curve.evaluate_multi(np.linspace(
+            0.0, 1.0, 50)))
         self.points = {
             'lie': [[[0.0, -4.0, 0.0] for _ in range(4)]],
             'sit': [[[-5.0, -17.5, 0.0] for _ in range(2)]
                     + [[0.0, -4.0, 0.0] for _ in range(2)]],
             'stand': [[[0.0, -15.0, 0.0] for _ in range(4)]],
+            'forward': np.transpose([np.concatenate([line_path, curve_path]),
+                                     np.concatenate([curve_path, line_path]),
+                                     np.concatenate([curve_path, line_path]),
+                                     np.concatenate([line_path, curve_path]),
+                                     ], axes=[1, 0, 2])
         }
         self.calc_paths()
         self.kit = ServoKit(channels=16)
@@ -35,10 +60,11 @@ class Controller():
             angles = [[0, 0, math.radians(self.femur_initial), math.radians(
                 self.tibia_initial), 0] for i in range(4)]
             for p in points:
+                print('P:', p)
                 for i in range(4):
                     angles[i] = self.chain.inverse_kinematics(
                         p[i], initial_position=angles[i])
-                self.paths[cmd].append(angles)
+                self.paths[cmd].append(angles.copy())
 
     def run(self, msg_queue, quit_event):
         ind = 0
@@ -56,7 +82,6 @@ class Controller():
             except Exception:
                 pass
             self.angles = self.paths[curr_cmd][ind]
-            # go to next step and wrap if at the end
             ind = (ind + 1) % len(self.paths[curr_cmd])
             self.move_to(self.angles[0], self.angles[1],
                          self.angles[2], self.angles[3])
