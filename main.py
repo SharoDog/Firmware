@@ -10,7 +10,8 @@ if __name__ == '__main__':
     comms = Thread(target=server.listen, args=(msg_queue, quit_event))
     comms.start()
     controller = Controller()
-    control = Thread(target=controller.run, args=(msg_queue, quit_event))
+    control = Thread(target=controller.run, args=(
+        msg_queue, quit_event))
     control.start()
     print('Started...')
     try:

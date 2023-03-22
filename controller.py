@@ -24,12 +24,13 @@ class Controller():
             'sit': [[[-5.0, -17.5, 0.0] for _ in range(2)]
                     + [[0.0, -4.0, 0.0] for _ in range(2)]],
             'stand': [[[0.0, -15.0, 0.0] for _ in range(4)]],
-            #  'forward': self.define_forward_walk(),
-            #  'backward': self.define_backward_walk(),
-            #  'right': self.define_rotate(True),
-            #  'left': self.define_rotate(False),
-            #  'rforward': self.define_robust_forward_walk(),
-            #  'rbackward': self.define_robust_backward_walk(),
+            'forward': self.define_forward_walk(),
+            'backward': self.define_backward_walk(),
+            'right': self.define_rotate(True),
+            'left': self.define_rotate(False),
+            'rforward': self.define_robust_forward_walk(),
+            'rbackward': self.define_robust_backward_walk(),
+            'emote1': self.define_emote1(),
             'emote2': self.define_emote2(),
             'emote3': self.define_emote3(),
             'emote4': self.define_emote4(),
@@ -189,18 +190,18 @@ class Controller():
     def define_robust_backward_walk(self):
         # walk
         front_line_nodes = np.asfortranarray([
-            [7.0, -5.0],
-            [-16.0, -17.0],
-            [-2.0, -2.0]
+            [-3.0, 9.0],
+            [-17.0, -18.0],
+            [2.0, 2.0]
         ])
         front_line = bezier.Curve(front_line_nodes, degree=1)
         front_line_path = np.transpose(front_line.evaluate_multi(np.linspace(
             0.0, 1.0, 50)))
 
         front_curve_nodes = np.asfortranarray([
-            [-5.0, 2.0, 7.0],
-            [-17.0, -10.0, -16.0],
-            [-2.0, -2.0, -2.0],
+            [9.0, 2.5, -3.0],
+            [-17.0, -5.0, -18.0],
+            [2.0, 2.0, 2.0],
         ])
 
         front_curve = bezier.Curve(front_curve_nodes, degree=2)
@@ -208,31 +209,31 @@ class Controller():
             front_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
 
         back_line_nodes = np.asfortranarray([
-            [3.0, -9.0],
-            [-15.0, -16.0],
-            [-2.0, -2.0]
+            [-6.0, 6.0],
+            [-15.0, -14.0],
+            [2.0, 2.0]
         ])
         back_line = bezier.Curve(back_line_nodes, degree=1)
         back_line_path = np.transpose(back_line.evaluate_multi(np.linspace(
             0.0, 1.0, 50)))
 
         back_curve_nodes = np.asfortranarray([
-            [-9.0, -2.0, 3.0],
-            [-16.0, -10.0, -15.0],
-            [-2.0, -2.0, -2.0],
+            [6.0, 0.0, -6.0],
+            [-14.0, -8.0, -15.0],
+            [2.0, 2.0, 2.0],
         ])
 
         back_curve = bezier.Curve(back_curve_nodes, degree=2)
         back_curve_path = np.transpose(
             back_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
-        return np.transpose([np.flip(np.concatenate(
-            [front_line_path, front_curve_path]), axis=0),
-            np.flip(np.concatenate(
-                    [front_curve_path, front_line_path]), axis=0),
-            np.flip(np.concatenate(
-                    [back_curve_path, back_line_path]), axis=0),
-            np.flip(np.concatenate(
-                    [back_line_path, back_curve_path]), axis=0),
+        return np.transpose([np.concatenate(
+            [front_line_path, front_curve_path]),
+            np.concatenate(
+            [front_curve_path, front_line_path]),
+            np.concatenate(
+            [back_curve_path, back_line_path]),
+            np.concatenate(
+            [back_line_path, back_curve_path]),
         ], axes=[1, 0, 2])
 
     def define_sidestep(self, left):
@@ -341,6 +342,10 @@ class Controller():
                 [second_line_path, second_curve_path])],
                 axes=[1, 0, 2])
 
+    def define_emote1(self):
+        return [[[14.0, -7.0, 1.0], [14.0, -7.0, 1.0]]
+                + [[0.0, -18.0, 1.0], [0.0, -18.0, 1.0]]]
+
     def define_emote2(self):
         # sidestep
         front_line_nodes = np.asfortranarray([
@@ -391,11 +396,11 @@ class Controller():
         ], axes=[1, 0, 2])
 
     def define_emote3(self):
-        return [[[16.0, -4.0, 0.0], [-8.0, -18.0, -4.0]]
+        return [[[10.0, -6.0, 0.0], [-8.0, -15.0, -4.0]]
                 + [[0.0, -10.0, 0.0], [0.0, -4.0, 0.0]]]
 
     def define_emote4(self):
-        return [[[-8.0, -18.0, -4.0], [14.0, -5.0, 0.0]]
+        return [[[-8.0, -15.0, -4.0], [10.0, -4.0, 0.0]]
                 + [[0.0, -4.0, 0.0], [0.0, -10.0, 0.0]]]
 
     def calc_paths(self):
@@ -412,7 +417,7 @@ class Controller():
 
     def run(self, msg_queue, quit_event):
         ind = 0
-        curr_cmd = 'emote4'
+        curr_cmd = 'stand'
         while True:
             if quit_event.is_set():
                 print('Killing controller...')
@@ -420,7 +425,6 @@ class Controller():
             try:
                 new_cmd = msg_queue.get_nowait()
                 if curr_cmd != new_cmd and new_cmd in self.paths:
-                    # TODO: Transition
                     ind = 0
                     curr_cmd = new_cmd
             except Exception:
