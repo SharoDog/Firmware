@@ -3,6 +3,7 @@ import math
 from adafruit_servokit import ServoKit
 import numpy as np
 import bezier
+import time
 
 
 class Controller():
@@ -429,10 +430,14 @@ class Controller():
                     curr_cmd = new_cmd
             except Exception:
                 pass
-            self.angles = self.paths[curr_cmd][ind]
-            ind = (ind + 1) % len(self.paths[curr_cmd])
-            self.move_to(self.angles[0], self.angles[1],
-                         self.angles[2], self.angles[3])
+            try:
+                self.angles = self.paths[curr_cmd][ind]
+                ind = (ind + 1) % len(self.paths[curr_cmd])
+                self.move_to(self.angles[0], self.angles[1],
+                             self.angles[2], self.angles[3])
+            except Exception:
+                pass
+            time.sleep(0)
 
     def move_to(self, fl_angles, fr_angles, bl_angles, br_angles):
         # fl

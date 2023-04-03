@@ -1,3 +1,4 @@
+import time
 import socket
 
 
@@ -38,3 +39,5 @@ class Server():
                         conn.close()
                         self.socket.close()
                         return
+                    time.sleep(0)
+                time.sleep(0)
