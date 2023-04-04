@@ -4,6 +4,7 @@ from adafruit_servokit import ServoKit
 import numpy as np
 import bezier
 import time
+from multiprocessing.connection import Connection
 
 
 class Controller():
@@ -416,28 +417,30 @@ class Controller():
                         p[i], initial_position=angles[i])
                 self.paths[cmd].append(angles.copy())
 
-    def run(self, msg_queue, quit_event):
-        ind = 0
-        curr_cmd = 'stand'
-        while True:
-            if quit_event.is_set():
-                print('Killing controller...')
-                return
-            try:
-                new_cmd = msg_queue.get_nowait()
-                if curr_cmd != new_cmd and new_cmd in self.paths:
-                    ind = 0
-                    curr_cmd = new_cmd
-            except Exception:
-                pass
-            try:
-                self.angles = self.paths[curr_cmd][ind]
-                ind = (ind + 1) % len(self.paths[curr_cmd])
-                self.move_to(self.angles[0], self.angles[1],
-                             self.angles[2], self.angles[3])
-            except Exception:
-                pass
-            time.sleep(0)
+    def run(self, server_pipe: Connection):
+        try:
+            ind = 0
+            curr_cmd = 'stand'
+            while True:
+                try:
+                    if server_pipe.readable and server_pipe.poll():
+                        new_cmd = server_pipe.recv()
+                        if curr_cmd != new_cmd and new_cmd in self.paths:
+                            ind = 0
+                            curr_cmd = new_cmd
+                except Exception:
+                    pass
+                try:
+                    self.angles = self.paths[curr_cmd][ind]
+                    ind = (ind + 1) % len(self.paths[curr_cmd])
+                    self.move_to(self.angles[0], self.angles[1],
+                                 self.angles[2], self.angles[3])
+                except Exception:
+                    pass
+                time.sleep(0)
+        except KeyboardInterrupt:
+            print('Killing controller...')
+            return
 
     def move_to(self, fl_angles, fr_angles, bl_angles, br_angles):
         # fl

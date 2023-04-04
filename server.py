@@ -9,35 +9,34 @@ class Server():
         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.socket.bind(('', self.port))
         self.socket.setblocking(False)
+        self.conn = None
 
-    def listen(self, msg_queue, quit_event):
-        self.socket.listen(1)
-        while True:
-            if quit_event.is_set():
-                print('Killing server...')
-                self.socket.close()
-                return
-            try:
-                conn, _ = self.socket.accept()
-            except Exception:
-                pass
-            else:
-                conn.setblocking(False)
-                while True:
-                    try:
-                        data = conn.recv(1024).decode()
-                    except Exception:
-                        pass
-                    else:
-                        print(data)
-                        if not data:
-                            conn.close()
-                            break
-                        msg_queue.put(data)
-                    if quit_event.is_set():
-                        print('Killing server...')
-                        conn.close()
-                        self.socket.close()
-                        return
+    def listen(self, controller_pipe):
+        try:
+            self.socket.listen(1)
+            while True:
+                try:
+                    self.conn, _ = self.socket.accept()
+                except Exception:
+                    pass
+                else:
+                    self.conn.setblocking(False)
+                    while True:
+                        try:
+                            data = self.conn.recv(1024).decode()
+                        except Exception:
+                            pass
+                        else:
+                            print(data)
+                            if not data:
+                                self.conn.close()
+                                break
+                            controller_pipe.send(data)
+                        time.sleep(0)
                     time.sleep(0)
-                time.sleep(0)
+        except KeyboardInterrupt:
+            print('Killing server...')
+            if self.conn:
+                self.conn.close()
+            self.socket.close()
+            return
