@@ -36,8 +36,11 @@ class Vision():
         try:
             self.socket.listen(1)
             while True:
-                self.conn, _ = self.socket.accept()
-                if self.conn:
+                try:
+                    self.conn, _ = self.socket.accept()
+                except Exception:
+                    pass
+                else:
                     while True:
                         if self.mock:
                             _, image = self.camera.read()
@@ -45,7 +48,12 @@ class Vision():
                             image = self.camera.capture_array()
                         a = pickle.dumps(image)
                         message = struct.pack("Q", len(a)) + a
-                        self.conn.sendall(message)
+                        try:
+                            self.conn.sendall(message)
+                        except Exception:
+                            self.conn.close()
+                            break
+                        time.sleep(0)
                 time.sleep(0)
         except KeyboardInterrupt:
             print('Killing vision server...')
