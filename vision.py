@@ -1,13 +1,18 @@
 import socket
 import time
 
-from picamera2 import Picamera2
+try:
+    from picamera2 import Picamera2
+except ImportError:
+    pass
+import cv2
 import pickle
 import struct
 
 
 class Vision():
-    def __init__(self):
+    def __init__(self, mock):
+        self.mock = mock
         self.port = 9999
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.conn = None
@@ -17,19 +22,27 @@ class Vision():
     def listen(self):
         # initialize camera in the new process
         # prevents access by multiple processes to the resource
-        self.camera = Picamera2()
+        if self.mock:
+            self.camera = cv2.VideoCapture(0)
+            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+        else:
+            self.camera = Picamera2()
 
-        camera_config = self.camera.create_still_configuration(
-            main={"size": (320, 240)})
-        self.camera.configure(camera_config)
-        self.camera.start()
+            camera_config = self.camera.create_still_configuration(
+                main={"size": (320, 240)})
+            self.camera.configure(camera_config)
+            self.camera.start()
         try:
             self.socket.listen(1)
             while True:
                 self.conn, _ = self.socket.accept()
                 if self.conn:
                     while True:
-                        image = self.camera.capture_array()
+                        if self.mock:
+                            _, image = self.camera.read()
+                        else:
+                            image = self.camera.capture_array()
                         a = pickle.dumps(image)
                         message = struct.pack("Q", len(a)) + a
                         self.conn.sendall(message)

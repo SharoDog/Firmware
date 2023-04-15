@@ -1,14 +1,16 @@
 from ikpy.chain import Chain
+import rutils
 import math
 from adafruit_servokit import ServoKit
 import numpy as np
 import bezier
 import time
 from multiprocessing.connection import Connection
+from multiprocessing import Array
 
 
 class Controller():
-    def __init__(self):
+    def __init__(self, mock):
         self.chain = Chain.from_urdf_file('leg.urdf', name='leg',
                                           active_links_mask=[
                                               False, True, True, True, False],
@@ -40,8 +42,11 @@ class Controller():
             'emote4': self.define_emote4(),
         }
         self.calc_paths()
-        self.kit = ServoKit(channels=16)
-        for i in range(16):
+        if mock:
+            self.kit = MockServoKit()
+        else:
+            self.kit = ServoKit(channels=16)
+        for i in range(12):
             self.kit.servo[i].set_pulse_width_range(500, 2500)
         # set lying position for sensors calibration
         self.move_to(self.paths['lie'][0][0], self.paths['lie'][0]
@@ -511,16 +516,9 @@ class Controller():
     def calc_paths(self):
         self.paths = {}
         for cmd, points in self.points.items():
-            self.paths[cmd] = []
-            angles = [[0, 0, math.radians(self.femur_initial), math.radians(
-                self.tibia_initial), 0] for i in range(4)]
-            for p in points:
-                for i in range(4):
-                    angles[i] = self.chain.inverse_kinematics(
-                        p[i], initial_position=angles[i])
-                self.paths[cmd].append(angles.copy())
+            self.paths[cmd] = rutils.path_ik(points)
 
-    def run(self, server_pipe: Connection, attitude):
+    def run(self, server_pipe: Connection, attitude: Array):
         try:
             ind = 0
             curr_cmd = 'lie'
@@ -549,40 +547,76 @@ class Controller():
         # fl
         self.kit.servo[0].angle = -self.femur_initial + \
             math.degrees(
-            fl_angles[2]) + self.femur_offset['fl']
+            fl_angles[1]) + self.femur_offset['fl']
         self.kit.servo[4].angle = - self.femur_initial + \
-            math.degrees(fl_angles[2]) +\
-            math.degrees(fl_angles[3]) -\
+            math.degrees(fl_angles[1]) +\
+            math.degrees(fl_angles[2]) -\
             self.tibia_initial + self.tibia_offset['fl']
-        self.kit.servo[8].angle = math.degrees(fl_angles[1]) +\
+        self.kit.servo[8].angle = math.degrees(fl_angles[0]) +\
             self.shoulder_offset['fl']
         # fr
         self.kit.servo[1].angle = self.femur_initial - \
             math.degrees(
-            fr_angles[2]) + self.femur_offset['fr']
+            fr_angles[1]) + self.femur_offset['fr']
         self.kit.servo[5].angle = self.femur_initial -\
-            math.degrees(fr_angles[2]) - \
-            math.degrees(fr_angles[3]) + \
+            math.degrees(fr_angles[1]) - \
+            math.degrees(fr_angles[2]) + \
             self.tibia_initial + self.tibia_offset['fr']
-        self.kit.servo[9].angle = - math.degrees(fr_angles[1]) +\
+        self.kit.servo[9].angle = - math.degrees(fr_angles[0]) +\
             self.shoulder_offset['fr']
         # bl
         self.kit.servo[2].angle = -self.femur_initial + \
             math.degrees(
-            bl_angles[2]) + self.femur_offset['bl']
+            bl_angles[1]) + self.femur_offset['bl']
         self.kit.servo[6].angle = - self.femur_initial +\
-            math.degrees(bl_angles[2]) + \
-            math.degrees(bl_angles[3]) - \
+            math.degrees(bl_angles[1]) + \
+            math.degrees(bl_angles[2]) - \
             self.tibia_initial + self.tibia_offset['bl']
-        self.kit.servo[10].angle = -math.degrees(bl_angles[1]) + \
+        self.kit.servo[10].angle = -math.degrees(bl_angles[0]) + \
             self.shoulder_offset['bl']
         # br
         self.kit.servo[3].angle = self.femur_initial - \
             math.degrees(
-            br_angles[2]) + self.femur_offset['br']
+            br_angles[1]) + self.femur_offset['br']
         self.kit.servo[7].angle = self.femur_initial - \
-            math.degrees(br_angles[2]) - \
-            math.degrees(br_angles[3]) + \
+            math.degrees(br_angles[1]) - \
+            math.degrees(br_angles[2]) + \
             self.tibia_initial + self.tibia_offset['br']
-        self.kit.servo[11].angle = math.degrees(br_angles[1]) + \
+        self.kit.servo[11].angle = math.degrees(br_angles[0]) + \
             self.shoulder_offset['br']
+
+
+class MockServoKit():
+    def __init__(self):
+        self.servo = [
+            MockServo('fl_femur'),
+            MockServo('fr_femur'),
+            MockServo('bl_femur'),
+            MockServo('br_femur'),
+            MockServo('fl_tibia'),
+            MockServo('fr_tibia'),
+            MockServo('bl_tibia'),
+            MockServo('br_tibia'),
+            MockServo('fl_shoulder'),
+            MockServo('fr_shoulder'),
+            MockServo('bl_shoulder'),
+            MockServo('br_shoulder')
+        ]
+
+
+class MockServo():
+    def __init__(self, role):
+        self._angle = 0
+        self.role = role
+
+    @property
+    def angle(self) -> int:
+        return self._angle
+
+    @angle.setter
+    def angle(self, value: int):
+        self._angle = value
+        print(f'{self.role}: {self._angle}')
+
+    def set_pulse_width_range(self, lower_bound: int, upper_bound: int):
+        print(f'{self.role} Pulse width range: {lower_bound} - {upper_bound}')
