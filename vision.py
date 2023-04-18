@@ -60,5 +60,8 @@ class Vision():
             if self.conn:
                 self.conn.close()
             self.socket.close()
-            self.camera.stop()
+            if not self.mock:
+                self.camera.stop()
+            else:
+                self.camera.release()
             return

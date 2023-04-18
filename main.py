@@ -14,6 +14,9 @@ if __name__ == '__main__':
         parser = argparse.ArgumentParser(description='Firmware for Sharo')
         parser.add_argument(
             '-m', '--mock', action='store_true', help='Mock hardware.')
+        parser.add_argument(
+            '-pa', '--print-angles', action='store_true',
+            help='Print servo angles when setting them.')
         args = parser.parse_args()
         if not args.mock:
             WIDTH = 128
@@ -52,7 +55,7 @@ if __name__ == '__main__':
         server_conn, controller_conn = multiprocessing.Pipe(duplex=True)
         comms = multiprocessing.Process(
             target=server.listen, args=(server_conn,))
-        controller = Controller(mock=args.mock)
+        controller = Controller(mock=args.mock, to_print=args.print_angles)
         control = multiprocessing.Process(target=controller.run, args=(
             controller_conn, attitude,))
         sensors_reader = Sensors(mock=args.mock)

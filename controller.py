@@ -10,7 +10,7 @@ from multiprocessing import Array
 
 
 class Controller():
-    def __init__(self, mock):
+    def __init__(self, mock, to_print):
         self.chain = Chain.from_urdf_file('leg.urdf', name='leg',
                                           active_links_mask=[
                                               False, True, True, True, False],
@@ -43,7 +43,7 @@ class Controller():
         }
         self.calc_paths()
         if mock:
-            self.kit = MockServoKit()
+            self.kit = MockServoKit(to_print)
         else:
             self.kit = ServoKit(channels=16)
         for i in range(12):
@@ -587,27 +587,28 @@ class Controller():
 
 
 class MockServoKit():
-    def __init__(self):
+    def __init__(self, to_print):
         self.servo = [
-            MockServo('fl_femur'),
-            MockServo('fr_femur'),
-            MockServo('bl_femur'),
-            MockServo('br_femur'),
-            MockServo('fl_tibia'),
-            MockServo('fr_tibia'),
-            MockServo('bl_tibia'),
-            MockServo('br_tibia'),
-            MockServo('fl_shoulder'),
-            MockServo('fr_shoulder'),
-            MockServo('bl_shoulder'),
-            MockServo('br_shoulder')
+            MockServo('fl_femur', to_print),
+            MockServo('fr_femur', to_print),
+            MockServo('bl_femur', to_print),
+            MockServo('br_femur', to_print),
+            MockServo('fl_tibia', to_print),
+            MockServo('fr_tibia', to_print),
+            MockServo('bl_tibia', to_print),
+            MockServo('br_tibia', to_print),
+            MockServo('fl_shoulder', to_print),
+            MockServo('fr_shoulder', to_print),
+            MockServo('bl_shoulder', to_print),
+            MockServo('br_shoulder', to_print)
         ]
 
 
-class MockServo():
-    def __init__(self, role):
+class MockServo:
+    def __init__(self, role, to_print):
         self._angle = 0
         self.role = role
+        self.to_print = to_print
 
     @property
     def angle(self) -> int:
@@ -616,7 +617,8 @@ class MockServo():
     @angle.setter
     def angle(self, value: int):
         self._angle = value
-        print(f'{self.role}: {self._angle}')
+        if self.to_print:
+            print(f'{self.role}: {self._angle}')
 
     def set_pulse_width_range(self, lower_bound: int, upper_bound: int):
         print(f'{self.role} Pulse width range: {lower_bound} - {upper_bound}')
