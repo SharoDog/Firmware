@@ -32,6 +32,14 @@ class Server():
                                 self.conn.close()
                                 break
                             controller_pipe.send(data)
+                        # check if controller has updated command
+                        try:
+                            if (controller_pipe.readable
+                                    and controller_pipe.poll()):
+                                msg = controller_pipe.recv()
+                                self.conn.send(msg.encode())
+                        except Exception:
+                            pass
                         time.sleep(0)
                     time.sleep(0)
         except KeyboardInterrupt:

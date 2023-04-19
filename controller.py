@@ -529,6 +529,7 @@ class Controller():
                         if curr_cmd != new_cmd and new_cmd in self.paths:
                             ind = 0
                             curr_cmd = new_cmd
+                            server_pipe.send('command: ' + new_cmd)
                 except Exception:
                     pass
                 try:
