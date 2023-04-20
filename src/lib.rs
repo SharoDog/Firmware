@@ -57,13 +57,13 @@ fn calc_ik(p: &Vec<f64>) -> Vec<f64> {
     // distance from origin, third side of the triangle
     let d = f64::sqrt(p.iter().map(|a| a * a).sum());
     // ZY femur angle
-    let omega = atan2(-p[2], -p[1]);
+    let omega = f64::atan2(-p[2], -p[1]);
     // XY target vector angle
-    let phi = atan2(p[1], p[0]);
+    let phi = f64::atan2(p[1], p[0]);
     // XY femur angle
-    let alpha = acos((femur * femur + d * d - tibia * tibia) / (2.0 * femur * d));
+    let alpha = f64::acos((femur * femur + d * d - tibia * tibia) / (2.0 * femur * d));
     // angle between femur and tibia
-    let beta = acos((femur * femur + tibia * tibia - d * d) / (2.0 * femur * tibia));
+    let beta = f64::acos((femur * femur + tibia * tibia - d * d) / (2.0 * femur * tibia));
     vec![omega, phi - alpha, 3.14 - beta]
 }
 

@@ -5,7 +5,10 @@ try:
     from picamera2 import Picamera2
 except ImportError:
     pass
-import cv2
+try:
+    import cv2
+except ImportError:
+    pass
 import pickle
 import struct
 

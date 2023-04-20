@@ -1,10 +1,13 @@
 import time
 import board
+import serial
 import adafruit_lsm9ds1
+import adafruit_gps
 import numpy as np
 from digitalio import DigitalInOut, Direction
 from ahrs.filters import Mahony
 from ahrs import Quaternion
+from multiprocessing.connection import Connection
 
 
 class Sensors:
@@ -69,10 +72,19 @@ class Sensors:
             self.Q = Quaternion(self.filter.Q[-1])
             self.acc = acc[-1]
             self.gyro = gyro[-1]
+            uart = serial.Serial('/dev/serial0', baudrate=9600, timeout=3000)
+            self.gps = adafruit_gps.GPS(uart)
+            # only minimal info
+            self.gps.send_command(
+                b'PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0')
+            self.gps.send_command(b'PMTK220,1000')
+            self.ultrasonic = serial.Serial(
+                '/dev/ttyUSB0', baudrate=115200, timeout=0)
 
-    def run(self, attitude):
+    def run(self, server_pipe: Connection, controller_pipe: Connection):
         try:
             while True:
+                self.gps.update()
                 if not self.mock:
                     if self.imu_ready.value:
                         self.acc = (np.fromiter(self.imu.acceleration,
@@ -91,9 +103,28 @@ class Sensors:
                         gyr=self.gyro,
                         #  mag=mag
                     ))
-                    attitude[:] = self.Q.to_angles()
+                    server_pipe.send(
+                        'IMU: ' + ';'.join(map(str, self.Q.to_angles())))
+                    if self.gps.has_fix:
+                        server_pipe.send(
+                            f'GPS: {self.gps.latitude};{self.gps.longitude};{self.gps.altitude_m + 440}')
+                    else:
+                        server_pipe.send(
+                            'GPS: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
+                    if self.ultrasonic.readable():
+                        dist = self.ultrasonic.readline().decode().strip()
+                        if dist:
+                            controller_pipe.send(
+                                f'US: {dist}')
                 else:
-                    attitude[:] = [0.0, 0.0, 0.0]
+                    # mock IMU
+                    server_pipe.send(
+                        'IMU: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
+                    controller_pipe.send(
+                        'IMU: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
+                    server_pipe.send(
+                        'GPS: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
+
                 time.sleep(0)
 
         except KeyboardInterrupt:

@@ -1,26 +1,19 @@
-from ikpy.chain import Chain
 import rutils
 import math
 from adafruit_servokit import ServoKit
 import numpy as np
 import bezier
-import time
 from multiprocessing.connection import Connection
-from multiprocessing import Array
 
 
 class Controller():
     def __init__(self, mock, to_print):
-        self.chain = Chain.from_urdf_file('leg.urdf', name='leg',
-                                          active_links_mask=[
-                                              False, True, True, True, False],
-                                          last_link_vector=[9, 0, 0])
         print('Initializing kinematics...')
         self.femur_initial = -135
         self.tibia_initial = 90
-        self.shoulder_offset = {'fr': 70, 'fl': 80, 'bl': 80, 'br': 75}
-        self.femur_offset = {'fr': 80, 'fl': 85, 'bl': 80, 'br': 85}
-        self.tibia_offset = {'fr': 90, 'fl': 80, 'br': 90, 'bl': 80}
+        self.shoulder_offset = {'fr': 75, 'fl': 90, 'bl': 85, 'br': 80}
+        self.femur_offset = {'fr': 85, 'fl': 95, 'bl': 90, 'br': 95}
+        self.tibia_offset = {'fr': 75, 'fl': 100, 'bl': 100, 'br': 80}
         self.speed = 1.0
         self.steering = 0.0
         self.angles = [[0, 0, math.radians(self.femur_initial), math.radians(
@@ -104,6 +97,7 @@ class Controller():
         ], axes=[1, 0, 2])
 
     def define_forward_walk2(self, steering, speed):
+        num_points = int(50 // speed)
         # walk
         front_line_nodes = np.asfortranarray([
             [7.0, -5.0],
@@ -112,7 +106,7 @@ class Controller():
         ])
         front_line = bezier.Curve(front_line_nodes, degree=1)
         front_line_path = np.transpose(front_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, num_points)))
 
         front_curve_nodes = np.asfortranarray([
             [-5.0, 2.0, 7.0],
@@ -122,7 +116,7 @@ class Controller():
 
         front_curve = bezier.Curve(front_curve_nodes, degree=2)
         front_curve_path = np.transpose(
-            front_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            front_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
 
         back_line_nodes = np.asfortranarray([
             [3.0, -9.0],
@@ -131,7 +125,7 @@ class Controller():
         ])
         back_line = bezier.Curve(back_line_nodes, degree=1)
         back_line_path = np.transpose(back_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, num_points)))
 
         back_curve_nodes = np.asfortranarray([
             [-9.0, -2.0, 3.0],
@@ -141,7 +135,7 @@ class Controller():
 
         back_curve = bezier.Curve(back_curve_nodes, degree=2)
         back_curve_path = np.transpose(
-            back_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            back_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         return np.transpose([np.concatenate(
             [front_line_path, front_curve_path]),
             np.concatenate(
@@ -572,7 +566,7 @@ class Controller():
             for cmd, points in self.points.items():
                 self.paths[cmd] = rutils.path_ik(points)
 
-    def run(self, server_pipe: Connection, attitude: Array):
+    def run(self, server_pipe: Connection, sensors_pipe: Connection):
         try:
             ind = 0
             curr_cmd = 'lie'
@@ -591,6 +585,7 @@ class Controller():
                             self.points['forward'] = self.define_forward_walk2(
                                 self.steering, self.speed)
                             self.calc_paths('forward')
+                            print(len(self.paths['forward']))
                             server_pipe.send('speed: ' + str(self.speed))
                         else:
                             new_cmd = msg
@@ -598,6 +593,16 @@ class Controller():
                                 ind = 0
                                 curr_cmd = new_cmd
                                 server_pipe.send('command: ' + new_cmd)
+                    if sensors_pipe.readable and sensors_pipe.poll():
+                        # prevent pipe hang
+                        msg: str = sensors_pipe.recv()
+                        if msg.startswith('US'):
+                            dist = int(msg.split(':')[1].strip())
+                            if dist <= 5 and (curr_cmd == 'forward' or
+                                              curr_cmd == 'rforward'):
+                                ind = 0
+                                curr_cmd = 'stand'
+                                server_pipe.send('command: stand')
                 except Exception:
                     pass
                 try:
@@ -605,9 +610,8 @@ class Controller():
                     ind = (ind + 1) % len(self.paths[curr_cmd])
                     self.move_to(self.angles[0], self.angles[1],
                                  self.angles[2], self.angles[3])
-                except Exception:
-                    pass
-                time.sleep(0)
+                except Exception as e:
+                    print(e)
         except KeyboardInterrupt:
             print('Killing controller...')
             return
@@ -679,11 +683,11 @@ class MockServo:
         self.role = role
         self.to_print = to_print
 
-    @property
+    @ property
     def angle(self) -> int:
         return self._angle
 
-    @angle.setter
+    @ angle.setter
     def angle(self, value: int):
         self._angle = value
         if self.to_print:
