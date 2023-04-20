@@ -21,6 +21,8 @@ class Controller():
         self.shoulder_offset = {'fr': 70, 'fl': 80, 'bl': 80, 'br': 75}
         self.femur_offset = {'fr': 80, 'fl': 85, 'bl': 80, 'br': 85}
         self.tibia_offset = {'fr': 90, 'fl': 80, 'br': 90, 'bl': 80}
+        self.speed = 1.0
+        self.steering = 0.0
         self.angles = [[0, 0, math.radians(self.femur_initial), math.radians(
             self.tibia_initial), 0] for i in range(4)]
         self.points = {
@@ -53,6 +55,55 @@ class Controller():
                      [1], self.paths['lie'][0][2], self.paths['lie'][0][3])
 
     def define_forward_walk(self):
+        # walk
+        front_line_nodes = np.asfortranarray([
+            [7.0, -5.0],
+            [-16.0, -17.0],
+            [-2.0, -2.0]
+        ])
+        front_line = bezier.Curve(front_line_nodes, degree=1)
+        front_line_path = np.transpose(front_line.evaluate_multi(np.linspace(
+            0.0, 1.0, 50)))
+
+        front_curve_nodes = np.asfortranarray([
+            [-5.0, 2.0, 7.0],
+            [-17.0, -13.0, -16.0],
+            [-2.0, -2.0, -2.0],
+        ])
+
+        front_curve = bezier.Curve(front_curve_nodes, degree=2)
+        front_curve_path = np.transpose(
+            front_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+
+        back_line_nodes = np.asfortranarray([
+            [3.0, -9.0],
+            [-15.0, -16.0],
+            [-2.0, -2.0]
+        ])
+        back_line = bezier.Curve(back_line_nodes, degree=1)
+        back_line_path = np.transpose(back_line.evaluate_multi(np.linspace(
+            0.0, 1.0, 50)))
+
+        back_curve_nodes = np.asfortranarray([
+            [-9.0, -2.0, 3.0],
+            [-16.0, -12.0, -15.0],
+            [-2.0, -2.0, -2.0],
+        ])
+
+        back_curve = bezier.Curve(back_curve_nodes, degree=2)
+        back_curve_path = np.transpose(
+            back_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+        return np.transpose([np.concatenate(
+            [front_line_path, front_curve_path]),
+            np.concatenate(
+            [front_curve_path, front_line_path]),
+            np.concatenate(
+            [back_curve_path, back_line_path]),
+            np.concatenate(
+            [back_line_path, back_curve_path]),
+        ], axes=[1, 0, 2])
+
+    def define_forward_walk2(self, steering, speed):
         # walk
         front_line_nodes = np.asfortranarray([
             [7.0, -5.0],
@@ -513,10 +564,13 @@ class Controller():
         return [[[-8.0, -15.0, -4.0], [10.0, -4.0, 0.0]]
                 + [[0.0, -4.0, 0.0], [0.0, -10.0, 0.0]]]
 
-    def calc_paths(self):
-        self.paths = {}
-        for cmd, points in self.points.items():
-            self.paths[cmd] = rutils.path_ik(points)
+    def calc_paths(self, command=None):
+        if command:
+            self.paths[command] = rutils.path_ik(self.points[command])
+        else:
+            self.paths = {}
+            for cmd, points in self.points.items():
+                self.paths[cmd] = rutils.path_ik(points)
 
     def run(self, server_pipe: Connection, attitude: Array):
         try:
@@ -525,11 +579,25 @@ class Controller():
             while True:
                 try:
                     if server_pipe.readable and server_pipe.poll():
-                        new_cmd = server_pipe.recv()
-                        if curr_cmd != new_cmd and new_cmd in self.paths:
-                            ind = 0
-                            curr_cmd = new_cmd
-                            server_pipe.send('command: ' + new_cmd)
+                        msg: str = server_pipe.recv()
+                        if msg.startswith('steering'):
+                            self.steering = float(msg.split(':')[1].strip())
+                            self.points['forward'] = self.define_forward_walk2(
+                                self.steering, self.speed)
+                            self.calc_paths('forward')
+                            server_pipe.send('steering: ' + str(self.steering))
+                        if msg.startswith('speed'):
+                            self.speed = float(msg.split(':')[1].strip())
+                            self.points['forward'] = self.define_forward_walk2(
+                                self.steering, self.speed)
+                            self.calc_paths('forward')
+                            server_pipe.send('speed: ' + str(self.speed))
+                        else:
+                            new_cmd = msg
+                            if curr_cmd != new_cmd and new_cmd in self.paths:
+                                ind = 0
+                                curr_cmd = new_cmd
+                                server_pipe.send('command: ' + new_cmd)
                 except Exception:
                     pass
                 try:

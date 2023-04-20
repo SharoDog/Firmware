@@ -1,5 +1,4 @@
 use pyo3::prelude::*;
-use rayon::prelude::*;
 
 fn atan2(y: f64, x: f64) -> f64 {
     let mut t0;
@@ -76,12 +75,11 @@ fn ik(p: Vec<f64>) -> PyResult<Vec<f64>> {
 
 /// Calculate inverse kinematics for 4 legs and a path
 #[pyfunction]
-fn path_ik(py: Python, path: Vec<Vec<Vec<f64>>>) -> PyResult<Vec<Vec<Vec<f64>>>> {
-    Ok(py.allow_threads(|| {
-        path.par_iter()
-            .map(|step| step.iter().map(calc_ik).collect())
-            .collect()
-    }))
+fn path_ik(path: Vec<Vec<Vec<f64>>>) -> PyResult<Vec<Vec<Vec<f64>>>> {
+    Ok(path
+        .iter()
+        .map(|step| step.iter().map(calc_ik).collect())
+        .collect())
 }
 
 /// A Python module implemented in Rust.
