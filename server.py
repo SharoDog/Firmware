@@ -1,5 +1,6 @@
 import time
 import socket
+from multiprocessing.connection import Connection
 
 
 class Server():
@@ -11,15 +12,17 @@ class Server():
         self.socket.setblocking(False)
         self.conn = None
 
-    def listen(self, controller_pipe, sensors_pipe):
+    def listen(self, controller_pipe: Connection, sensors_pipe: Connection,
+               vision_pipe: Connection):
         try:
             self.socket.listen(1)
             while True:
                 try:
-                    self.conn, _ = self.socket.accept()
+                    self.conn, (addr, _) = self.socket.accept()
                 except Exception:
                     pass
                 else:
+                    vision_pipe.send(addr)
                     self.conn.setblocking(False)
                     while True:
                         try:
@@ -29,6 +32,7 @@ class Server():
                         else:
                             if not data:
                                 self.conn.close()
+                                vision_pipe.send('dc')
                                 break
                             controller_pipe.send(data)
                         try:

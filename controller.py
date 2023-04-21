@@ -585,7 +585,6 @@ class Controller():
                             self.points['forward'] = self.define_forward_walk2(
                                 self.steering, self.speed)
                             self.calc_paths('forward')
-                            print(len(self.paths['forward']))
                             server_pipe.send('speed: ' + str(self.speed))
                         else:
                             new_cmd = msg
@@ -610,8 +609,8 @@ class Controller():
                     ind = (ind + 1) % len(self.paths[curr_cmd])
                     self.move_to(self.angles[0], self.angles[1],
                                  self.angles[2], self.angles[3])
-                except Exception as e:
-                    print(e)
+                except Exception:
+                    pass
         except KeyboardInterrupt:
             print('Killing controller...')
             return

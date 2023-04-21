@@ -44,9 +44,11 @@ if __name__ == '__main__':
             duplex=True)
         server_to_sensors_pipe, sensors_to_server_pipe = multiprocessing.Pipe()
         controller_to_sensors_pipe, sensors_to_controller_pipe = multiprocessing.Pipe()
+        vision_to_server_pipe, server_to_vision_pipe = multiprocessing.Pipe()
         comms = multiprocessing.Process(
             target=server.listen,
-            args=(server_to_controller_pipe, server_to_sensors_pipe))
+            args=(server_to_controller_pipe, server_to_sensors_pipe,
+                  server_to_vision_pipe))
         controller = Controller(mock=args.mock, to_print=args.print_angles)
         control = multiprocessing.Process(target=controller.run, args=(
             controller_to_server_pipe, controller_to_sensors_pipe,))
@@ -58,7 +60,8 @@ if __name__ == '__main__':
         sensors.start()
         control.start()
         vision_server = Vision(mock=args.mock)
-        vision = multiprocessing.Process(target=vision_server.listen)
+        vision = multiprocessing.Process(
+            target=vision_server.run, args=(vision_to_server_pipe,))
         vision.start()
         print('Started...')
 
