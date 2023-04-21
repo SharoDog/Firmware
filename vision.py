@@ -26,13 +26,13 @@ class Vision():
         # prevents access by multiple processes to the resource
         if self.mock:
             self.camera = cv2.VideoCapture(0)
-            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         else:
             self.camera = Picamera2()
 
             camera_config = self.camera.create_still_configuration(
-                main={"size": (320, 240)})
+                main={"size": (640, 480)})
             self.camera.configure(camera_config)
             self.camera.start()
         try:
