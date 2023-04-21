@@ -84,8 +84,8 @@ class Sensors:
     def run(self, server_pipe: Connection, controller_pipe: Connection):
         try:
             while True:
-                self.gps.update()
                 if not self.mock:
+                    self.gps.update()
                     if self.imu_ready.value:
                         self.acc = (np.fromiter(self.imu.acceleration,
                                                 dtype=np.double)
@@ -117,13 +117,12 @@ class Sensors:
                             controller_pipe.send(
                                 f'US: {dist}')
                 else:
-                    # mock IMU
+                    # mock IMU and GPS
                     server_pipe.send(
                         'IMU: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
-                    controller_pipe.send(
-                        'IMU: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
                     server_pipe.send(
-                        'GPS: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
+                        'GPS: ' + ';'.join(map(str, [None, None, None])))
+                    time.sleep(0.5)
 
                 time.sleep(0)
 

@@ -11,7 +11,7 @@ class Controller():
         print('Initializing kinematics...')
         self.femur_initial = -135
         self.tibia_initial = 90
-        self.shoulder_offset = {'fr': 75, 'fl': 95, 'bl': 85, 'br': 85}
+        self.shoulder_offset = {'fr': 75, 'fl': 90, 'bl': 85, 'br': 85}
         self.femur_offset = {'fr': 85, 'fl': 90, 'bl': 90, 'br': 95}
         self.tibia_offset = {'fr': 75, 'fl': 100, 'bl': 100, 'br': 85}
         self.speed = 1.0
@@ -29,9 +29,9 @@ class Controller():
             'counterclockwise': self.define_rotate(False),
             'right': self.define_sidestep(False),
             'left': self.define_sidestep(True),
-            'steer r': self.define_steer(False, 1.0),
-            'steer l': self.define_steer(True, 1.0),
-            'rforward': self.define_robust_forward_walk(),
+            'steer right': self.define_steer(False, 1.0),
+            'steer left': self.define_steer(True, 1.0),
+            'off road': self.define_off_road_forward_walk(),
             'emote1': self.define_emote1(),
             'emote2': self.define_emote2(),
             'emote3': self.define_emote3(),
@@ -150,7 +150,7 @@ class Controller():
             [back_line_path, back_curve_path]),
         ], axes=[1, 0, 2])
 
-    def define_robust_forward_walk(self):
+    def define_off_road_forward_walk(self):
         # walk
         front_line_nodes = np.asfortranarray([
             [7.0, -5.0],
@@ -524,7 +524,7 @@ class Controller():
     def run(self, server_pipe: Connection, sensors_pipe: Connection):
         try:
             ind = 0
-            curr_cmd = 'stand'
+            curr_cmd = 'lie'
             while True:
                 try:
                     if server_pipe.readable and server_pipe.poll():
@@ -535,9 +535,9 @@ class Controller():
                             #  self.steering, self.speed)
                             #  self.calc_paths('forward')
                             if self.steering < 0.0:
-                                new_cmd = 'steer l'
+                                new_cmd = 'steer left'
                             elif self.steering > 0.0:
-                                new_cmd = 'steer r'
+                                new_cmd = 'steer right'
                             else:
                                 new_cmd = 'forward'
                             server_pipe.send('steering: ' + str(self.steering))
@@ -566,7 +566,7 @@ class Controller():
                         if msg.startswith('US'):
                             dist = int(msg.split(':')[1].strip())
                             if dist < 10 and (curr_cmd == 'forward' or
-                                              curr_cmd == 'rforward'):
+                                              curr_cmd == 'off road'):
                                 ind = 0
                                 curr_cmd = 'stand'
                                 server_pipe.send('command: stand')

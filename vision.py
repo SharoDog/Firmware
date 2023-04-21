@@ -31,8 +31,8 @@ class Vision():
         else:
             self.camera = Picamera2()
 
-            camera_config = self.camera.create_still_configuration(
-                main={"size": (640, 480)})
+            camera_config = self.camera.create_video_configuration(
+                main={"size": (640, 480)}, raw={"size": (3280, 2464)})
             self.camera.configure(camera_config)
             self.camera.start()
         try:
