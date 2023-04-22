@@ -34,7 +34,11 @@ class Server():
                                 self.conn.close()
                                 vision_pipe.send('dc')
                                 break
-                            controller_pipe.send(data)
+                            if data.startswith('sensors'):
+                                sensors_pipe.send(
+                                    data.split(':')[1].strip() == 'True')
+                            else:
+                                controller_pipe.send(data)
                         try:
                             # check if controller has updated command
                             if (controller_pipe.readable

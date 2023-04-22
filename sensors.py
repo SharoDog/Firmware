@@ -13,6 +13,7 @@ from multiprocessing.connection import Connection
 class Sensors:
     def __init__(self, mock):
         self.mock = mock
+        self.enabled = True
         if not self.mock:
             self.spi = board.SPI()
             self.csag = DigitalInOut(board.D23)
@@ -84,45 +85,48 @@ class Sensors:
     def run(self, server_pipe: Connection, controller_pipe: Connection):
         try:
             while True:
-                if not self.mock:
-                    self.gps.update()
-                    if self.imu_ready.value:
-                        self.acc = (np.fromiter(self.imu.acceleration,
-                                                dtype=np.double)
-                                    - self.acc_offsets)
-                        self.gyro = (np.fromiter(
-                            self.imu.gyro, dtype=np.double)
-                            - self.gyro_offsets)
-                        #  mag = np.fromiter(self.imu.magnetic,
-                        # dtype=np.double) * [1 / 100, 1 / 100, 1 / 100]
-                        #  print(acc, gyro, mag)
-                    self.filter.Dt = (time.time() - self.last_calc)
-                    self.last_calc = time.time()
-                    self.Q = Quaternion(self.filter.updateIMU(
-                        q=self.Q.to_array(), acc=self.acc,
-                        gyr=self.gyro,
-                        #  mag=mag
-                    ))
-                    server_pipe.send(
-                        'IMU: ' + ';'.join(map(str, self.Q.to_angles())))
-                    if self.gps.has_fix:
+                if self.enabled:
+                    if not self.mock:
+                        self.gps.update()
+                        if self.imu_ready.value:
+                            self.acc = (np.fromiter(self.imu.acceleration,
+                                                    dtype=np.double)
+                                        - self.acc_offsets)
+                            self.gyro = (np.fromiter(
+                                self.imu.gyro, dtype=np.double)
+                                - self.gyro_offsets)
+                            #  mag = np.fromiter(self.imu.magnetic,
+                            # dtype=np.double) * [1 / 100, 1 / 100, 1 / 100]
+                            #  print(acc, gyro, mag)
+                        self.filter.Dt = (time.time() - self.last_calc)
+                        self.last_calc = time.time()
+                        self.Q = Quaternion(self.filter.updateIMU(
+                            q=self.Q.to_array(), acc=self.acc,
+                            gyr=self.gyro,
+                            #  mag=mag
+                        ))
                         server_pipe.send(
-                            f'GPS: {self.gps.latitude};{self.gps.longitude};{self.gps.altitude_m + 440}')
+                            'IMU: ' + ';'.join(map(str, self.Q.to_angles())))
+                        if self.gps.has_fix:
+                            server_pipe.send(
+                                f'GPS: {self.gps.latitude};{self.gps.longitude};{self.gps.altitude_m + 440}')
+                        else:
+                            server_pipe.send(
+                                'GPS: ' + ';'.join(map(str, [None, None, None])))
+                        if self.ultrasonic.readable():
+                            dist = self.ultrasonic.readline().decode().strip()
+                            if dist:
+                                controller_pipe.send(
+                                    f'US: {dist}')
                     else:
+                        # mock IMU and GPS
                         server_pipe.send(
-                            'GPS: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
-                    if self.ultrasonic.readable():
-                        dist = self.ultrasonic.readline().decode().strip()
-                        if dist:
-                            controller_pipe.send(
-                                f'US: {dist}')
-                else:
-                    # mock IMU and GPS
-                    server_pipe.send(
-                        'IMU: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
-                    server_pipe.send(
-                        'GPS: ' + ';'.join(map(str, [None, None, None])))
-                    time.sleep(0.5)
+                            'IMU: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
+                        server_pipe.send(
+                            'GPS: ' + ';'.join(map(str, [None, None, None])))
+                        time.sleep(0.5)
+                if server_pipe.readable and server_pipe.poll():
+                    self.enabled = bool(server_pipe.recv())
 
                 time.sleep(0)
 
