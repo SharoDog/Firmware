@@ -33,9 +33,10 @@ class Sensors:
             for i in range(1000):
                 while not self.imu_ready.value:
                     pass
-                acc_data.append(np.fromiter(
-                    self.imu.acceleration, dtype=np.double))
-                gyro_data.append(np.fromiter(self.imu.gyro, dtype=np.double))
+                acc_data.append(self.transform_acc_or_gyro_data(
+                    np.fromiter(self.imu.acceleration, dtype=np.double)))
+                gyro_data.append(self.transform_acc_or_gyro_data(
+                    np.fromiter(self.imu.gyro, dtype=np.double)))
             acc_data = np.transpose(acc_data)
             self.acc_offsets = [sum(acc_data[0]) / len(acc_data[0]),
                                 sum(acc_data[1]) / len(acc_data[1]),
@@ -56,19 +57,19 @@ class Sensors:
                 # wait for sensors to be ready
                 while not self.imu_ready.value:
                     pass
-                acc.append((np.fromiter(self.imu.acceleration,
-                           dtype=np.double) - self.acc_offsets))
+                acc.append(self.transform_acc_or_gyro_data(
+                    np.fromiter(self.imu.acceleration,
+                                dtype=np.double) - self.acc_offsets))
+                gyro.append(self.transform_acc_or_gyro_data(
+                    np.fromiter(self.imu.gyro,
+                                dtype=np.double) - self.gyro_offsets))
                 #  mag.append(np.fromiter(self.imu.magnetic,
                 #  dtype=np.double) * [1 / 100, 1 / 100, 1 / 100])
-                gyro.append((np.fromiter(self.imu.gyro,
-                            dtype=np.double) - self.gyro_offsets))
                 self.last_calc = time.time()
             self.filter = Mahony(acc=np.asarray(acc),
                                  gyr=np.asarray(gyro),
                                  #  mag=np.asarray(mag),
-                                 Dt=(self.last_calc - start_time) / 10.0,
-                                 k_P=2.0,
-                                 k_I=0.1)
+                                 Dt=(self.last_calc - start_time) / 10.0)
             # initial attitude
             self.Q = Quaternion(self.filter.Q[-1])
             self.acc = acc[-1]
@@ -80,7 +81,10 @@ class Sensors:
                 b'PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0')
             self.gps.send_command(b'PMTK220,1000')
             self.ultrasonic = serial.Serial(
-                '/dev/ttyUSB0', baudrate=115200, timeout=0)
+                '/dev/ttyUSB0', baudrate=115200, timeout=100)
+
+    def transform_acc_or_gyro_data(self, data):
+        return [data[1], data[0], data[2]]
 
     def run(self, server_pipe: Connection, controller_pipe: Connection):
         try:
@@ -89,15 +93,15 @@ class Sensors:
                     if not self.mock:
                         self.gps.update()
                         if self.imu_ready.value:
-                            self.acc = (np.fromiter(self.imu.acceleration,
-                                                    dtype=np.double)
-                                        - self.acc_offsets)
-                            self.gyro = (np.fromiter(
-                                self.imu.gyro, dtype=np.double)
+                            self.acc = self.transform_acc_or_gyro_data(
+                                np.fromiter(self.imu.acceleration,
+                                            dtype=np.double)
+                                - self.acc_offsets)
+                            self.gyro = self.transform_acc_or_gyro_data(
+                                np.fromiter(self.imu.gyro, dtype=np.double)
                                 - self.gyro_offsets)
                             #  mag = np.fromiter(self.imu.magnetic,
-                            # dtype=np.double) * [1 / 100, 1 / 100, 1 / 100]
-                            #  print(acc, gyro, mag)
+                            # dtype=np.double) / [100, 100, 100]
                         self.filter.Dt = (time.time() - self.last_calc)
                         self.last_calc = time.time()
                         self.Q = Quaternion(self.filter.updateIMU(
@@ -115,7 +119,7 @@ class Sensors:
                                 'GPS: ' + ';'.join(map(str, [None, None, None])))
                         if self.ultrasonic.readable():
                             dist = self.ultrasonic.readline().decode().strip()
-                            if dist:
+                            if dist and int(dist) != 0:
                                 controller_pipe.send(
                                     f'US: {dist}')
                     else:

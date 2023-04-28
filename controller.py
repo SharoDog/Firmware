@@ -55,7 +55,7 @@ class Controller():
         front_line_nodes = np.asfortranarray([
             [7.0 * speed, -5.0 * speed],
             [-16.0, -17.0],
-            [-1.0, -1.0]
+            [0.0, 0.0]
         ])
         front_line = bezier.Curve(front_line_nodes, degree=1)
         front_line_path = np.transpose(front_line.evaluate_multi(np.linspace(
@@ -64,7 +64,7 @@ class Controller():
         front_curve_nodes = np.asfortranarray([
             [-5.0 * speed, 2.0, 7.0 * speed],
             [-17.0, -13.0, -16.0],
-            [-1.0, -1.0, -1.0],
+            [0.0, 0.0, 0.0],
         ])
 
         front_curve = bezier.Curve(front_curve_nodes, degree=2)
@@ -74,7 +74,7 @@ class Controller():
         back_line_nodes = np.asfortranarray([
             [3.0 * speed, -9.0 * speed],
             [-15.5, -16.5],
-            [-1.0, -1.0]
+            [0.0, 0.0]
         ])
         back_line = bezier.Curve(back_line_nodes, degree=1)
         back_line_path = np.transpose(back_line.evaluate_multi(np.linspace(
@@ -83,7 +83,7 @@ class Controller():
         back_curve_nodes = np.asfortranarray([
             [-9.0 * speed, -2.0, 3.0 * speed],
             [-16.5, -13.0, -15.5],
-            [-1.0, -1.0, -1.0],
+            [0.0, 0.0, 0.0],
         ])
 
         back_curve = bezier.Curve(back_curve_nodes, degree=2)
@@ -106,7 +106,7 @@ class Controller():
         front_line_nodes = np.asfortranarray([
             [-3.0 * speed, 8.0 * speed],
             [-17.0, -16.0],
-            [-2.0, -2.0]
+            [0.0, 0.0]
         ])
         front_line = bezier.Curve(front_line_nodes, degree=1)
         front_line_path = np.transpose(front_line.evaluate_multi(np.linspace(
@@ -115,7 +115,7 @@ class Controller():
         front_curve_nodes = np.asfortranarray([
             [8.0 * speed, 2.5 * speed, -3.0 * speed],
             [-16.0, -12.0, -17.0],
-            [-2.0, -2.0, -2.0],
+            [0.0, 0.0, 0.0],
         ])
 
         front_curve = bezier.Curve(front_curve_nodes, degree=2)
@@ -125,7 +125,7 @@ class Controller():
         back_line_nodes = np.asfortranarray([
             [-4.0 * speed, 6.0 * speed],
             [-16.0, -15.0],
-            [-2.0, -2.0]
+            [0.0, 0.0]
         ])
         back_line = bezier.Curve(back_line_nodes, degree=1)
         back_line_path = np.transpose(back_line.evaluate_multi(np.linspace(
@@ -134,7 +134,7 @@ class Controller():
         back_curve_nodes = np.asfortranarray([
             [6.0 * speed, 0.0 * speed, -4.0 * speed],
             [-15.0, -13.0, -16.0],
-            [-2.0, -2.0, -2.0],
+            [0.0, 0.0, 0.0],
         ])
 
         back_curve = bezier.Curve(back_curve_nodes, degree=2)
@@ -521,6 +521,19 @@ class Controller():
             for cmd, points in self.points.items():
                 self.paths[cmd] = rutils.path_ik(points)
 
+    def transition(self, curr_angls, new_path):
+        angls = np.asarray(curr_angls)
+        ind = 0
+        best_score = None
+        for (i, p) in enumerate(new_path):
+            pos = np.asarray(p)
+            curr_score = sum(
+                [ang ** 2 for ang in np.ravel(pos - angls)])
+            if not best_score or curr_score < best_score:
+                ind = i
+                best_score = curr_score
+        return ind
+
     def run(self, server_pipe: Connection, sensors_pipe: Connection):
         try:
             ind = 0
@@ -531,9 +544,6 @@ class Controller():
                         msg: str = server_pipe.recv()
                         if msg.startswith('steering'):
                             self.steering = float(msg.split(':')[1].strip())
-                            #  self.points['forward'] = self.define_forward_walk(
-                            #  self.steering, self.speed)
-                            #  self.calc_paths('forward')
                             if self.steering < 0.0:
                                 new_cmd = 'steer left'
                             elif self.steering > 0.0:
@@ -542,7 +552,8 @@ class Controller():
                                 new_cmd = 'forward'
                             server_pipe.send('steering: ' + str(self.steering))
                             if curr_cmd != new_cmd and new_cmd in self.paths:
-                                ind = 0
+                                ind = self.transition(
+                                    self.angles, self.paths[new_cmd])
                                 curr_cmd = new_cmd
                                 server_pipe.send('command: ' + new_cmd)
                         if msg.startswith('speed'):
@@ -551,13 +562,15 @@ class Controller():
                                 self.steering, self.speed)
                             self.calc_paths('forward')
                             server_pipe.send('speed: ' + str(self.speed))
-                            self.points['backward'] = self.define_backward_walk(
+                            self.points[
+                                'backward'] = self.define_backward_walk(
                                 self.steering, self.speed)
                             self.calc_paths('backward')
                         else:
                             new_cmd = msg
                             if curr_cmd != new_cmd and new_cmd in self.paths:
-                                ind = 0
+                                ind = self.transition(
+                                    self.angles, self.paths[new_cmd])
                                 curr_cmd = new_cmd
                                 server_pipe.send('command: ' + new_cmd)
                     if sensors_pipe.readable and sensors_pipe.poll():
