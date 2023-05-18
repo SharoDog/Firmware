@@ -1,4 +1,5 @@
 import rutils
+import time
 import math
 from adafruit_servokit import ServoKit
 import numpy as np
@@ -592,6 +593,7 @@ class Controller():
                                  self.angles[2], self.angles[3])
                 except Exception:
                     pass
+                time.sleep(0.001)
         except KeyboardInterrupt:
             print('Killing controller...')
             return

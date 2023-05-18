@@ -132,7 +132,7 @@ class Sensors:
                 if server_pipe.readable and server_pipe.poll():
                     self.enabled = bool(server_pipe.recv())
 
-                time.sleep(0)
+                time.sleep(0.02)
 
         except KeyboardInterrupt:
             print('Killing sensors...')

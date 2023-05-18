@@ -53,7 +53,7 @@ class Server():
                                 self.conn.sendall((msg + '\r\n').encode())
                         except Exception:
                             pass
-                        time.sleep(0)
+                        time.sleep(0.02)
                 # prevent pipe hang
                 while (controller_pipe.readable
                         and controller_pipe.poll()):
@@ -62,7 +62,7 @@ class Server():
                 while (sensors_pipe.readable
                        and sensors_pipe.poll()):
                     msg = sensors_pipe.recv()
-                time.sleep(0)
+                time.sleep(0.02)
         except KeyboardInterrupt:
             print('Killing server...')
             if self.conn:
