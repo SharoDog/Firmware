@@ -1,13 +1,17 @@
 import time
-import board
-import serial
-import adafruit_lsm9ds1
-import adafruit_gps
 import numpy as np
-from digitalio import DigitalInOut, Direction
 from ahrs.filters import Mahony
 from ahrs import Quaternion
 from multiprocessing.connection import Connection
+
+try:
+    import board
+    import serial
+    import adafruit_lsm9ds1
+    import adafruit_gps
+    from digitalio import DigitalInOut, Direction
+except ImportError:
+    pass
 
 
 class Sensors:

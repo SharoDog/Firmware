@@ -1,10 +1,13 @@
 import rutils
 import time
 import math
-from adafruit_servokit import ServoKit
 import numpy as np
 import bezier
 from multiprocessing.connection import Connection
+try:
+    from adafruit_servokit import ServoKit
+except ImportError:
+    pass
 
 
 class Controller():
@@ -51,7 +54,7 @@ class Controller():
 
     def define_forward_walk(self, steering: float, speed: float):
         speed = 1 + (speed - 1) * 0.5
-        num_points = int(50 // speed)
+        num_points = int(40 // speed)
         # walk
         front_line_nodes = np.asfortranarray([
             [7.0 * speed, -5.0 * speed],
@@ -102,7 +105,7 @@ class Controller():
 
     def define_backward_walk(self, steering: float, speed: float):
         speed = 1 + (speed - 1) * 0.5
-        num_points = int(50 // speed)
+        num_points = int(40 // speed)
         # walk
         front_line_nodes = np.asfortranarray([
             [-3.0 * speed, 8.0 * speed],
@@ -160,7 +163,7 @@ class Controller():
         ])
         front_line = bezier.Curve(front_line_nodes, degree=1)
         front_line_path = np.transpose(front_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         front_curve_nodes = np.asfortranarray([
             [-5.0, 2.0, 7.0],
@@ -170,7 +173,7 @@ class Controller():
 
         front_curve = bezier.Curve(front_curve_nodes, degree=2)
         front_curve_path = np.transpose(
-            front_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            front_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
 
         back_line_nodes = np.asfortranarray([
             [3.0, -9.0],
@@ -179,7 +182,7 @@ class Controller():
         ])
         back_line = bezier.Curve(back_line_nodes, degree=1)
         back_line_path = np.transpose(back_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         back_curve_nodes = np.asfortranarray([
             [-9.0, -2.0, 3.0],
@@ -189,7 +192,7 @@ class Controller():
 
         back_curve = bezier.Curve(back_curve_nodes, degree=2)
         back_curve_path = np.transpose(
-            back_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            back_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
         return np.transpose([np.concatenate(
             [front_line_path, front_curve_path]),
             np.concatenate(
@@ -209,7 +212,7 @@ class Controller():
         ])
         fi_line = bezier.Curve(fi_line_nodes, degree=1)
         fi_line_path = np.transpose(fi_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         fi_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -219,7 +222,7 @@ class Controller():
 
         fi_curve = bezier.Curve(fi_curve_nodes, degree=2)
         fi_curve_path = np.transpose(
-            fi_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            fi_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
         # fo
         fo_line_nodes = np.asfortranarray([
             [-2.0, -2.0],
@@ -228,7 +231,7 @@ class Controller():
         ])
         fo_line = bezier.Curve(fo_line_nodes, degree=1)
         fo_line_path = np.transpose(fo_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         fo_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -238,7 +241,7 @@ class Controller():
 
         fo_curve = bezier.Curve(fo_curve_nodes, degree=2)
         fo_curve_path = np.transpose(
-            fo_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            fo_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
         # bi
         bi_line_nodes = np.asfortranarray([
             [-2.0, -2.0],
@@ -247,7 +250,7 @@ class Controller():
         ])
         bi_line = bezier.Curve(bi_line_nodes, degree=1)
         bi_line_path = np.transpose(bi_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         bi_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -257,7 +260,7 @@ class Controller():
 
         bi_curve = bezier.Curve(bi_curve_nodes, degree=2)
         bi_curve_path = np.transpose(
-            bi_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            bi_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
         # bo
         bo_line_nodes = np.asfortranarray([
             [-2.0, -2.0],
@@ -266,7 +269,7 @@ class Controller():
         ])
         bo_line = bezier.Curve(bo_line_nodes, degree=1)
         bo_line_path = np.transpose(bo_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         bo_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -276,7 +279,7 @@ class Controller():
 
         bo_curve = bezier.Curve(bo_curve_nodes, degree=2)
         bo_curve_path = np.transpose(
-            bo_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            bo_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
         if left:
             return np.transpose([np.concatenate(
                 [fi_line_path, fi_curve_path]),
@@ -307,7 +310,7 @@ class Controller():
         ])
         fi_line = bezier.Curve(fi_line_nodes, degree=1)
         fi_line_path = np.transpose(fi_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         fi_curve_nodes = np.asfortranarray([
             [-3.0, 2.0, 5.0],
@@ -317,7 +320,7 @@ class Controller():
 
         fi_curve = bezier.Curve(fi_curve_nodes, degree=2)
         fi_curve_path = np.transpose(
-            fi_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            fi_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
         # fo
         fo_line_nodes = np.asfortranarray([
             [8.0, -6.0],
@@ -326,7 +329,7 @@ class Controller():
         ])
         fo_line = bezier.Curve(fo_line_nodes, degree=1)
         fo_line_path = np.transpose(fo_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         fo_curve_nodes = np.asfortranarray([
             [-6.0, 2.0, 8.0],
@@ -336,7 +339,7 @@ class Controller():
 
         fo_curve = bezier.Curve(fo_curve_nodes, degree=2)
         fo_curve_path = np.transpose(
-            fo_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            fo_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
         # bi
         bi_line_nodes = np.asfortranarray([
             [1.0, -7.0],
@@ -345,7 +348,7 @@ class Controller():
         ])
         bi_line = bezier.Curve(bi_line_nodes, degree=1)
         bi_line_path = np.transpose(bi_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         bi_curve_nodes = np.asfortranarray([
             [-7.0, -2.0, 1.0],
@@ -355,7 +358,7 @@ class Controller():
 
         bi_curve = bezier.Curve(bi_curve_nodes, degree=2)
         bi_curve_path = np.transpose(
-            bi_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            bi_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
         # bo
         bo_line_nodes = np.asfortranarray([
             [4.0, -10.0],
@@ -364,7 +367,7 @@ class Controller():
         ])
         bo_line = bezier.Curve(bo_line_nodes, degree=1)
         bo_line_path = np.transpose(bo_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         bo_curve_nodes = np.asfortranarray([
             [-10.0, -2.0, 4.0],
@@ -374,7 +377,7 @@ class Controller():
 
         bo_curve = bezier.Curve(bo_curve_nodes, degree=2)
         bo_curve_path = np.transpose(
-            bo_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            bo_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
         if left:
             return np.transpose([np.concatenate(
                 [fi_line_path, fi_curve_path]),
@@ -466,7 +469,7 @@ class Controller():
         ])
         front_line = bezier.Curve(front_line_nodes, degree=1)
         front_line_path = np.transpose(front_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         front_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -476,7 +479,7 @@ class Controller():
 
         front_curve = bezier.Curve(front_curve_nodes, degree=2)
         front_curve_path = np.transpose(
-            front_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            front_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
 
         back_line_nodes = np.asfortranarray([
             [-2.0, -2.0],
@@ -485,7 +488,7 @@ class Controller():
         ])
         back_line = bezier.Curve(back_line_nodes, degree=1)
         back_line_path = np.transpose(back_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 50)))
+            0.0, 1.0, 40)))
 
         back_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -495,7 +498,7 @@ class Controller():
 
         back_curve = bezier.Curve(back_curve_nodes, degree=2)
         back_curve_path = np.transpose(
-            back_curve.evaluate_multi(np.linspace(0.0, 1.0, 50)))
+            back_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
         return np.transpose([np.concatenate(
             [front_line_path, front_curve_path]),
             np.concatenate(
@@ -593,7 +596,6 @@ class Controller():
                                  self.angles[2], self.angles[3])
                 except Exception:
                     pass
-                time.sleep(0.001)
         except KeyboardInterrupt:
             print('Killing controller...')
             return
