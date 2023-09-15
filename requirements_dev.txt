@@ -1,0 +1,6 @@
+AHRS==0.3.1
+bezier==2023.7.28
+Firmware @ file:///tmp/.tmpbHxyGv/Firmware-0.1.0-cp311-cp311-linux_x86_64.whl#sha256=69c23ac5c8d48feed200b9f112181176a9785d8ba28b2182e15d506c933033ca
+numpy==1.25.2
+opencv-python==4.8.0.76
+Pillow==10.0.0

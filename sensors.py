@@ -85,7 +85,7 @@ class Sensors:
                 b'PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0')
             self.gps.send_command(b'PMTK220,1000')
             self.ultrasonic = serial.Serial(
-                '/dev/ttyUSB0', baudrate=115200, timeout=100)
+                '/dev/ttyUSB1', baudrate=115200, timeout=100)
 
     def transform_acc_or_gyro_data(self, data):
         return [data[1], data[0], data[2]]
@@ -114,7 +114,7 @@ class Sensors:
                             #  mag=mag
                         ))
                         server_pipe.send(
-                            'IMU: ' + ';'.join(map(str, self.Q.to_angles())))
+                            'IMU: ' + ';'.join(map(str, np.degrees(self.Q.to_angles()))))
                         if self.gps.has_fix:
                             server_pipe.send(
                                 f'GPS: {self.gps.latitude};{self.gps.longitude};{self.gps.altitude_m + 440}')

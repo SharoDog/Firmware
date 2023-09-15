@@ -90,7 +90,7 @@ class Display:
             self.oled.fill(0)
             self.oled.image(self.image)
             self.oled.show()
-        self.dt = 1
+        self.dt = 0.02
         self.last_switch = time.time() 
 
     def run(self, vision_pipe: Connection):

@@ -4,6 +4,8 @@ import math
 import numpy as np
 import bezier
 from multiprocessing.connection import Connection
+from multiprocessing import Process
+
 try:
     from adafruit_servokit import ServoKit
 except ImportError:
@@ -22,6 +24,7 @@ class Controller():
         self.steering = 0.0
         self.angles = [[0, 0, math.radians(self.femur_initial), math.radians(
             self.tibia_initial), 0] for i in range(4)]
+        self.default_steps = 25
         self.points = {
             'lie': [[[0.0, -4.0, 0.0] for _ in range(4)]],
             'sit': [[[-5.0, -17.5, 0.0] for _ in range(2)]
@@ -29,13 +32,13 @@ class Controller():
             'stand': [[[0.0, -15.0, 0.0] for _ in range(4)]],
             'forward': self.define_forward_walk(0.0, 1.0),
             'backward': self.define_backward_walk(0.0, 1.0),
-            'clockwise': self.define_rotate(True),
-            'counterclockwise': self.define_rotate(False),
-            'right': self.define_sidestep(False),
-            'left': self.define_sidestep(True),
+            'clockwise': self.define_rotate(True, 1.0),
+            'counterclockwise': self.define_rotate(False, 1.0),
+            'right': self.define_sidestep(False, 1.0),
+            'left': self.define_sidestep(True, 1.0),
             'steer right': self.define_steer(False, 1.0),
             'steer left': self.define_steer(True, 1.0),
-            'off road': self.define_off_road_forward_walk(),
+            'off road': self.define_off_road_forward_walk(1.0),
             'emote1': self.define_emote1(),
             'emote2': self.define_emote2(),
             'emote3': self.define_emote3(),
@@ -48,13 +51,13 @@ class Controller():
             self.kit = ServoKit(channels=16)
         for i in range(12):
             self.kit.servo[i].set_pulse_width_range(500, 2500)
+        self.code_process = None
         # set lying position for sensors calibration
         self.move_to(self.paths['lie'][0][0], self.paths['lie'][0]
                      [1], self.paths['lie'][0][2], self.paths['lie'][0][3])
 
     def define_forward_walk(self, steering: float, speed: float):
-        speed = 1 + (speed - 1) * 0.5
-        num_points = int(40 // speed)
+        num_points = int(self.default_steps // speed)
         # walk
         front_line_nodes = np.asfortranarray([
             [7.0 * speed, -5.0 * speed],
@@ -104,8 +107,7 @@ class Controller():
         ], axes=[1, 0, 2])
 
     def define_backward_walk(self, steering: float, speed: float):
-        speed = 1 + (speed - 1) * 0.5
-        num_points = int(40 // speed)
+        num_points = int(self.default_steps // speed)
         # walk
         front_line_nodes = np.asfortranarray([
             [-3.0 * speed, 8.0 * speed],
@@ -154,7 +156,8 @@ class Controller():
             [back_line_path, back_curve_path]),
         ], axes=[1, 0, 2])
 
-    def define_off_road_forward_walk(self):
+    def define_off_road_forward_walk(self, speed: float):
+        num_points = int(25 // speed)
         # walk
         front_line_nodes = np.asfortranarray([
             [7.0, -5.0],
@@ -163,7 +166,7 @@ class Controller():
         ])
         front_line = bezier.Curve(front_line_nodes, degree=1)
         front_line_path = np.transpose(front_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         front_curve_nodes = np.asfortranarray([
             [-5.0, 2.0, 7.0],
@@ -173,7 +176,7 @@ class Controller():
 
         front_curve = bezier.Curve(front_curve_nodes, degree=2)
         front_curve_path = np.transpose(
-            front_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            front_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
 
         back_line_nodes = np.asfortranarray([
             [3.0, -9.0],
@@ -182,7 +185,7 @@ class Controller():
         ])
         back_line = bezier.Curve(back_line_nodes, degree=1)
         back_line_path = np.transpose(back_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         back_curve_nodes = np.asfortranarray([
             [-9.0, -2.0, 3.0],
@@ -192,7 +195,7 @@ class Controller():
 
         back_curve = bezier.Curve(back_curve_nodes, degree=2)
         back_curve_path = np.transpose(
-            back_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            back_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         return np.transpose([np.concatenate(
             [front_line_path, front_curve_path]),
             np.concatenate(
@@ -203,7 +206,8 @@ class Controller():
             [back_line_path, back_curve_path]),
         ], axes=[1, 0, 2])
 
-    def define_sidestep(self, left):
+    def define_sidestep(self, left: bool, speed: float):
+        num_points = int(self.default_steps // speed)
         # fi
         fi_line_nodes = np.asfortranarray([
             [-2.0, -2.0],
@@ -212,7 +216,7 @@ class Controller():
         ])
         fi_line = bezier.Curve(fi_line_nodes, degree=1)
         fi_line_path = np.transpose(fi_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         fi_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -222,7 +226,7 @@ class Controller():
 
         fi_curve = bezier.Curve(fi_curve_nodes, degree=2)
         fi_curve_path = np.transpose(
-            fi_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            fi_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         # fo
         fo_line_nodes = np.asfortranarray([
             [-2.0, -2.0],
@@ -231,7 +235,7 @@ class Controller():
         ])
         fo_line = bezier.Curve(fo_line_nodes, degree=1)
         fo_line_path = np.transpose(fo_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         fo_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -241,7 +245,7 @@ class Controller():
 
         fo_curve = bezier.Curve(fo_curve_nodes, degree=2)
         fo_curve_path = np.transpose(
-            fo_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            fo_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         # bi
         bi_line_nodes = np.asfortranarray([
             [-2.0, -2.0],
@@ -250,7 +254,7 @@ class Controller():
         ])
         bi_line = bezier.Curve(bi_line_nodes, degree=1)
         bi_line_path = np.transpose(bi_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         bi_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -260,7 +264,7 @@ class Controller():
 
         bi_curve = bezier.Curve(bi_curve_nodes, degree=2)
         bi_curve_path = np.transpose(
-            bi_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            bi_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         # bo
         bo_line_nodes = np.asfortranarray([
             [-2.0, -2.0],
@@ -269,7 +273,7 @@ class Controller():
         ])
         bo_line = bezier.Curve(bo_line_nodes, degree=1)
         bo_line_path = np.transpose(bo_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         bo_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -279,7 +283,7 @@ class Controller():
 
         bo_curve = bezier.Curve(bo_curve_nodes, degree=2)
         bo_curve_path = np.transpose(
-            bo_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            bo_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         if left:
             return np.transpose([np.concatenate(
                 [fi_line_path, fi_curve_path]),
@@ -302,6 +306,7 @@ class Controller():
             ], axes=[1, 0, 2])
 
     def define_steer(self, left, speed: float):
+        num_points = int(25 // speed)
         # fi
         fi_line_nodes = np.asfortranarray([
             [5.0, -3.0],
@@ -310,7 +315,7 @@ class Controller():
         ])
         fi_line = bezier.Curve(fi_line_nodes, degree=1)
         fi_line_path = np.transpose(fi_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         fi_curve_nodes = np.asfortranarray([
             [-3.0, 2.0, 5.0],
@@ -320,7 +325,7 @@ class Controller():
 
         fi_curve = bezier.Curve(fi_curve_nodes, degree=2)
         fi_curve_path = np.transpose(
-            fi_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            fi_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         # fo
         fo_line_nodes = np.asfortranarray([
             [8.0, -6.0],
@@ -329,7 +334,7 @@ class Controller():
         ])
         fo_line = bezier.Curve(fo_line_nodes, degree=1)
         fo_line_path = np.transpose(fo_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         fo_curve_nodes = np.asfortranarray([
             [-6.0, 2.0, 8.0],
@@ -339,7 +344,7 @@ class Controller():
 
         fo_curve = bezier.Curve(fo_curve_nodes, degree=2)
         fo_curve_path = np.transpose(
-            fo_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            fo_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         # bi
         bi_line_nodes = np.asfortranarray([
             [1.0, -7.0],
@@ -348,7 +353,7 @@ class Controller():
         ])
         bi_line = bezier.Curve(bi_line_nodes, degree=1)
         bi_line_path = np.transpose(bi_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         bi_curve_nodes = np.asfortranarray([
             [-7.0, -2.0, 1.0],
@@ -358,7 +363,7 @@ class Controller():
 
         bi_curve = bezier.Curve(bi_curve_nodes, degree=2)
         bi_curve_path = np.transpose(
-            bi_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            bi_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         # bo
         bo_line_nodes = np.asfortranarray([
             [4.0, -10.0],
@@ -367,7 +372,7 @@ class Controller():
         ])
         bo_line = bezier.Curve(bo_line_nodes, degree=1)
         bo_line_path = np.transpose(bo_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         bo_curve_nodes = np.asfortranarray([
             [-10.0, -2.0, 4.0],
@@ -377,7 +382,7 @@ class Controller():
 
         bo_curve = bezier.Curve(bo_curve_nodes, degree=2)
         bo_curve_path = np.transpose(
-            bo_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            bo_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         if left:
             return np.transpose([np.concatenate(
                 [fi_line_path, fi_curve_path]),
@@ -399,14 +404,15 @@ class Controller():
                 [bi_line_path, bi_curve_path]),
             ], axes=[1, 0, 2])
 
-    def define_rotate(self, clockwise):
+    def define_rotate(self, clockwise, speed):
+        num_points = int(self.default_steps // speed)
         first_line_nodes = np.asfortranarray([[0.0, 0.0],
                                               [-16.0, -17.0],
                                               [-5.0, 2.0],
                                               ])
         first_line = bezier.Curve(first_line_nodes, degree=1)
         first_line_path = np.transpose(first_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         first_curve_nodes = np.asfortranarray([
             [0.0, 0.0, 0.0],
@@ -416,7 +422,7 @@ class Controller():
 
         first_curve = bezier.Curve(first_curve_nodes, degree=2)
         first_curve_path = np.transpose(first_curve.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
         second_line_nodes = np.asfortranarray([
             [0.0, 0.0],
             [-17.0, -16.0],
@@ -424,7 +430,7 @@ class Controller():
         ])
         second_line = bezier.Curve(second_line_nodes, degree=1)
         second_line_path = np.transpose(second_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         second_curve_nodes = np.asfortranarray([
             [0.0, 0.0, 0.0],
@@ -434,7 +440,7 @@ class Controller():
 
         second_curve = bezier.Curve(second_curve_nodes, degree=2)
         second_curve_path = np.transpose(
-            second_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            second_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         if clockwise:
             return np.transpose([np.concatenate(
                 [first_line_path, first_curve_path]),
@@ -461,6 +467,7 @@ class Controller():
                 + [[0.0, -18.0, 1.0], [0.0, -18.0, 1.0]]]
 
     def define_emote2(self):
+        num_points = 25
         # sidestep
         front_line_nodes = np.asfortranarray([
             [-2.0, -2.0],
@@ -469,7 +476,7 @@ class Controller():
         ])
         front_line = bezier.Curve(front_line_nodes, degree=1)
         front_line_path = np.transpose(front_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         front_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -479,7 +486,7 @@ class Controller():
 
         front_curve = bezier.Curve(front_curve_nodes, degree=2)
         front_curve_path = np.transpose(
-            front_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            front_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
 
         back_line_nodes = np.asfortranarray([
             [-2.0, -2.0],
@@ -488,7 +495,7 @@ class Controller():
         ])
         back_line = bezier.Curve(back_line_nodes, degree=1)
         back_line_path = np.transpose(back_line.evaluate_multi(np.linspace(
-            0.0, 1.0, 40)))
+            0.0, 1.0, num_points)))
 
         back_curve_nodes = np.asfortranarray([
             [-2.0, -2.0, -2.0],
@@ -498,7 +505,7 @@ class Controller():
 
         back_curve = bezier.Curve(back_curve_nodes, degree=2)
         back_curve_path = np.transpose(
-            back_curve.evaluate_multi(np.linspace(0.0, 1.0, 40)))
+            back_curve.evaluate_multi(np.linspace(0.0, 1.0, num_points)))
         return np.transpose([np.concatenate(
             [front_line_path, front_curve_path]),
             np.concatenate(
@@ -546,36 +553,62 @@ class Controller():
                 try:
                     if server_pipe.readable and server_pipe.poll():
                         msg: str = server_pipe.recv()
-                        if msg.startswith('steering'):
-                            self.steering = float(msg.split(':')[1].strip())
-                            if self.steering < 0.0:
-                                new_cmd = 'steer left'
-                            elif self.steering > 0.0:
-                                new_cmd = 'steer right'
-                            else:
-                                new_cmd = 'forward'
-                            server_pipe.send('steering: ' + str(self.steering))
-                            if curr_cmd != new_cmd and new_cmd in self.paths:
-                                ind = self.transition(
-                                    self.angles, self.paths[new_cmd])
-                                curr_cmd = new_cmd
-                                server_pipe.send('command: ' + new_cmd)
-                        if msg.startswith('speed'):
+                        if msg.startswith('code:'): 
+                            code = msg[len('code:'):]
+                            self.code_process = Process(target=exec, args=(code,))
+                            self.code_process.start()
+                            server_pipe.send('code')
+                        elif msg.startswith('speed'):
                             self.speed = float(msg.split(':')[1].strip())
+                            speed = 1 + (self.speed - 1) * 0.5
                             self.points['forward'] = self.define_forward_walk(
-                                self.steering, self.speed)
+                                self.steering, speed)
                             self.calc_paths('forward')
-                            server_pipe.send('speed: ' + str(self.speed))
                             self.points[
                                 'backward'] = self.define_backward_walk(
-                                self.steering, self.speed)
+                                self.steering, speed)
                             self.calc_paths('backward')
+                            self.points[
+                                'off road'] = self.define_off_road_forward_walk(speed)
+                            self.calc_paths('off road')
+                            self.points[
+                                'left'] = self.define_sidestep(True, speed)
+                            self.calc_paths('left')
+                            self.points[
+                                'right'] = self.define_sidestep(False, speed)
+                            self.calc_paths('right')
+                            self.points[
+                                'steer left'] = self.define_steer(True, speed)
+                            self.calc_paths('steer left')
+                            self.points[
+                                'steer right'] = self.define_steer(False, speed)
+                            self.calc_paths('steer right')
+                            self.points[
+                                'clockwise'] = self.define_rotate(True, speed)
+                            self.calc_paths('clockwise')
+                            self.points[
+                                'counterclockwise'] = self.define_rotate(False, speed)
+                            self.calc_paths('counterclockwise')
+                            server_pipe.send('speed: ' + str(self.speed))
                         else:
-                            new_cmd = msg
+                            if msg.startswith('steering'):
+                                self.steering = float(msg.split(':')[1].strip())
+                                if self.steering < 0.0:
+                                    new_cmd = 'steer left'
+                                elif self.steering > 0.0:
+                                    new_cmd = 'steer right'
+                                else:
+                                    new_cmd = 'forward'
+                                server_pipe.send('steering: ' + str(self.steering))
+                            else:
+                                new_cmd = msg
                             if curr_cmd != new_cmd and new_cmd in self.paths:
                                 ind = self.transition(
                                     self.angles, self.paths[new_cmd])
                                 curr_cmd = new_cmd
+                                if self.code_process and self.code_process.is_alive():
+                                    self.code_process.kill()
+                                    self.code_process.join()
                                 server_pipe.send('command: ' + new_cmd)
                     if sensors_pipe.readable and sensors_pipe.poll():
                         # prevent pipe hang
@@ -598,6 +631,10 @@ class Controller():
                     pass
         except KeyboardInterrupt:
             print('Killing controller...')
+            if self.code_process and self.code_process.is_alive():
+                print('Killing user code...')
+                self.code_process.kill()
+                self.code_process.join()
             return
 
     def move_to(self, fl_angles, fr_angles, bl_angles, br_angles):
