@@ -21,17 +21,6 @@ class Vision():
         self.emotion_labels = ['angry', 'disgust',
                                'fearful', 'happy', 'neutral', 'sad', 'surprised']
         self.line_thickness = 2
-        if self.mock:
-            self.camera = cv2.VideoCapture(0)
-            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        else:
-            self.camera = Picamera2()
-
-            camera_config = self.camera.create_video_configuration(
-                main={"size": (640, 480)}, raw={"size": (3280, 2464)})
-            self.camera.configure(camera_config)
-            self.camera.start()
         self.addr = None
         self.port = 9999
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -39,6 +28,17 @@ class Vision():
 
     def run(self, server_pipe: Connection, display_pipe: Connection):
         try:
+            if self.mock:
+                self.camera = cv2.VideoCapture(0)
+                self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            else:
+                self.camera = Picamera2()
+
+                camera_config = self.camera.create_video_configuration(
+                    main={"size": (640, 480)}, raw={"size": (3280, 2464)})
+                self.camera.configure(camera_config)
+                self.camera.start()
             while True:
                 if server_pipe.readable and server_pipe.poll():
                     msg = server_pipe.recv()

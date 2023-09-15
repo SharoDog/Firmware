@@ -82,7 +82,7 @@ class Display:
             'disgust': self.fear_image,
             'surprised': self.surprise_image}
         if not self.mock:
-            #  self.default_image = ImageOps.flip(self.default_image)
+            self.default_image = ImageOps.mirror(ImageOps.flip(self.default_image))
             for key, val in self.images.items():
                 self.images[key] = ImageOps.flip(val)
         self.image = self.default_image
