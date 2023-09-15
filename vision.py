@@ -51,9 +51,10 @@ class Vision():
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 else:
                     frame = self.camera.capture_array()
-                    frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
+                    original_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
+                    frame = cv2.resize(original_frame, (320, 240), interpolation=cv2.INTER_AREA)
                 # CV
-                self.face_detector.setInputSize((640, 480))
+                self.face_detector.setInputSize((320, 240))
                 _, faces = self.face_detector.detect(frame)
                 faces = faces if faces is not None else []
                 emotion = 'neutral'
@@ -62,7 +63,7 @@ class Vision():
                     box = list(map(int, face[:4]))
                     color = (0, 255, 0)
                     thickness = 2
-                    cv2.rectangle(frame, box, color,
+                    cv2.rectangle(original_frame, list(map(lambda a: a * 2, box)), color,
                                   thickness, cv2.LINE_AA)
                     if all(x >= 0 for x in box):
                         try:
@@ -81,9 +82,9 @@ class Vision():
                             output_blob = self.emotion_classifier.forward(['label'])
                             emotion_label_arg = np.argmax(output_blob[0], axis=1).astype(np.uint8)[0]
                             label = self.emotion_labels[emotion_label_arg]
-                            label_position = (box[0], box[1])
+                            label_position = (box[0] * 2, box[1] * 2)
                             cv2.putText(
-                            frame, label, label_position,
+                            original_frame, label, label_position,
                             cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
                             if box[2] * box[3] > biggest_area:
                                 emotion = label
@@ -94,14 +95,14 @@ class Vision():
 
                 fire = self.fire_detector.detectMultiScale(frame, 1.2, 5)
                 for (x, y, w, h) in fire:
-                    cv2.rectangle(frame, (x-20, y-20),
-                    (x+w+20, y+h+20),
+                    cv2.rectangle(original_frame, ((x-20) * 2, (y-20) * 2),
+                    ((x+w+20) * 2, (y+h+20) * 2),
                     (255, 0, 0), self.line_thickness,
                     cv2.LINE_AA)
                 if self.addr:
                     # send
                     _, buffer = cv2.imencode(
-                        '.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
+                        '.jpg', original_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 30])
                     message = struct.pack('B' * len(buffer), *buffer)
                     self.socket.sendto(message,
                                        (self.addr, self.port))
