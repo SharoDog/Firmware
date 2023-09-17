@@ -20,8 +20,8 @@ class Controller():
         self.femur_initial = -135
         self.tibia_initial = 90
         self.shoulder_offset = {'fr': 75, 'fl': 90, 'bl': 85, 'br': 85}
-        self.femur_offset = {'fr': 85, 'fl': 90, 'bl': 90, 'br': 95}
-        self.tibia_offset = {'fr': 75, 'fl': 100, 'bl': 100, 'br': 85}
+        self.femur_offset = {'fr': 85, 'fl': 80, 'bl': 90, 'br': 95}
+        self.tibia_offset = {'fr': 75, 'fl': 100, 'bl': 100, 'br': 87}
         self.speed = 1.0
         self.steering = 0.0
         self.angles = [[0, 0, math.radians(self.femur_initial), math.radians(
@@ -538,6 +538,8 @@ class Controller():
             self.paths = {}
             for cmd, points in self.points.items():
                 self.paths[cmd] = rutils.path_ik(points)
+            # for testing
+            # self.paths['lie'] = [[[0.0, math.radians(-90), math.radians(90)],]*4]
 
     def transition(self, curr_angls, new_path):
         angls = np.asarray(curr_angls)
