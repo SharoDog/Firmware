@@ -85,7 +85,7 @@ class Sensors:
                 b'PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0')
             self.gps.send_command(b'PMTK220,1000')
             self.ultrasonic = serial.Serial(
-                '/dev/ttyUSB1', baudrate=115200, timeout=100)
+                '/dev/ttyUSB0', baudrate=115200, timeout=100)
 
     def transform_acc_or_gyro_data(self, data):
         return [data[1], data[0], data[2]]

@@ -45,8 +45,7 @@ class Server():
                                     and controller_pipe.poll()):
                                 msg = controller_pipe.recv()
                                 print(msg)
-                                if msg != 'code':
-                                    self.conn.sendall((msg + '\r\n').encode())
+                                self.conn.sendall((msg + '\r\n').encode())
                             # check if there is new sensors data
                             while (sensors_pipe.readable
                                    and sensors_pipe.poll()):

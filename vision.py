@@ -48,7 +48,8 @@ class Vision():
                         self.addr = msg
                 if self.mock:
                     _, frame = self.camera.read()
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    original_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    frame = cv2.resize(original_frame, (320, 240), interpolation=cv2.INTER_AREA)
                 else:
                     frame = self.camera.capture_array()
                     original_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)

@@ -1,10 +1,12 @@
+import random
 import rutils
 import time
 import math
 import numpy as np
 import bezier
 from multiprocessing.connection import Connection
-from multiprocessing import Process
+from multiprocessing import Process, Pipe, Value
+import ctypes
 
 try:
     from adafruit_servokit import ServoKit
@@ -55,6 +57,11 @@ class Controller():
         # set lying position for sensors calibration
         self.move_to(self.paths['lie'][0][0], self.paths['lie'][0]
                      [1], self.paths['lie'][0][2], self.paths['lie'][0][3])
+        # communication with user code
+        self.code_pipe, self.code_to_controller_pipe = Pipe(duplex=False)
+        self.distance = Value(ctypes.c_int, 0)
+        self.pitch = Value(ctypes.c_double, 0)
+        self.roll = Value(ctypes.c_double, 0)
 
     def define_forward_walk(self, steering: float, speed: float):
         num_points = int(self.default_steps // speed)
@@ -544,6 +551,37 @@ class Controller():
                 ind = i
                 best_score = curr_score
         return ind
+    
+    def set_speed(self, speed):
+        speed = 1 + (self.speed - 1) * 0.5
+        self.points['forward'] = self.define_forward_walk(
+            self.steering, speed)
+        self.calc_paths('forward')
+        self.points[
+            'backward'] = self.define_backward_walk(
+            self.steering, speed)
+        self.calc_paths('backward')
+        self.points[
+            'off road'] = self.define_off_road_forward_walk(speed)
+        self.calc_paths('off road')
+        self.points[
+            'left'] = self.define_sidestep(True, speed)
+        self.calc_paths('left')
+        self.points[
+            'right'] = self.define_sidestep(False, speed)
+        self.calc_paths('right')
+        self.points[
+            'steer left'] = self.define_steer(True, speed)
+        self.calc_paths('steer left')
+        self.points[
+            'steer right'] = self.define_steer(False, speed)
+        self.calc_paths('steer right')
+        self.points[
+            'clockwise'] = self.define_rotate(True, speed)
+        self.calc_paths('clockwise')
+        self.points[
+            'counterclockwise'] = self.define_rotate(False, speed)
+        self.calc_paths('counterclockwise')
 
     def run(self, server_pipe: Connection, sensors_pipe: Connection):
         try:
@@ -551,44 +589,45 @@ class Controller():
             curr_cmd = 'lie'
             while True:
                 try:
+                    if self.code_process:
+                        if self.code_process.is_alive() or (self.code_pipe.readable and self.code_pipe.poll()):
+                            if self.code_pipe.readable and self.code_pipe.poll():
+                                msg: str = self.code_pipe.recv()
+                                if msg.startswith('speed'):
+                                    self.speed = float(msg.split(':')[1].strip())     
+                                    self.set_speed(self.speed)
+                                    server_pipe.send('speed: ' + str(self.speed))
+                                else:
+                                    if msg.startswith('steer'):
+                                        if msg == 'steer left':
+                                            server_pipe.send('steering: -0.5')
+                                        else:
+                                            server_pipe.send('steering: 0.5')
+                                    new_cmd = msg
+                                    if curr_cmd != new_cmd and new_cmd in self.paths:
+                                        ind = self.transition(
+                                            self.angles, self.paths[new_cmd])
+                                        curr_cmd = new_cmd
+                                        server_pipe.send('command: ' + new_cmd)
+                        elif not self.code_process.is_alive():
+                            self.code_process = None
+                            server_pipe.send('codestop')
                     if server_pipe.readable and server_pipe.poll():
                         msg: str = server_pipe.recv()
                         if msg.startswith('code:'): 
-                            code = msg[len('code:'):]
-                            self.code_process = Process(target=exec, args=(code,))
+                            code = compile(msg[len('code:'):], 'usercode', 'exec')
+                            args = {
+                                'command': self.code_to_controller_pipe,
+                                'distance': self.distance,
+                                'pitch': self.pitch,
+                                'roll': self.pitch
+                            }
+                            self.code_process = Process(target=exec, args=(code, None, args))
                             self.code_process.start()
                             server_pipe.send('code')
                         elif msg.startswith('speed'):
-                            self.speed = float(msg.split(':')[1].strip())
-                            speed = 1 + (self.speed - 1) * 0.5
-                            self.points['forward'] = self.define_forward_walk(
-                                self.steering, speed)
-                            self.calc_paths('forward')
-                            self.points[
-                                'backward'] = self.define_backward_walk(
-                                self.steering, speed)
-                            self.calc_paths('backward')
-                            self.points[
-                                'off road'] = self.define_off_road_forward_walk(speed)
-                            self.calc_paths('off road')
-                            self.points[
-                                'left'] = self.define_sidestep(True, speed)
-                            self.calc_paths('left')
-                            self.points[
-                                'right'] = self.define_sidestep(False, speed)
-                            self.calc_paths('right')
-                            self.points[
-                                'steer left'] = self.define_steer(True, speed)
-                            self.calc_paths('steer left')
-                            self.points[
-                                'steer right'] = self.define_steer(False, speed)
-                            self.calc_paths('steer right')
-                            self.points[
-                                'clockwise'] = self.define_rotate(True, speed)
-                            self.calc_paths('clockwise')
-                            self.points[
-                                'counterclockwise'] = self.define_rotate(False, speed)
-                            self.calc_paths('counterclockwise')
+                            self.speed = float(msg.split(':')[1].strip())     
+                            self.set_speed(self.speed)
                             server_pipe.send('speed: ' + str(self.speed))
                         else:
                             if msg.startswith('steering'):
@@ -602,26 +641,29 @@ class Controller():
                                 server_pipe.send('steering: ' + str(self.steering))
                             else:
                                 new_cmd = msg
+                            if self.code_process and self.code_process.is_alive():
+                                self.code_process.kill()
+                                self.code_process.join()
+                                self.code_process = None
+                                server_pipe.send('codestop')
                             if curr_cmd != new_cmd and new_cmd in self.paths:
                                 ind = self.transition(
                                     self.angles, self.paths[new_cmd])
                                 curr_cmd = new_cmd
-                                if self.code_process and self.code_process.is_alive():
-                                    self.code_process.kill()
-                                    self.code_process.join()
                                 server_pipe.send('command: ' + new_cmd)
                     if sensors_pipe.readable and sensors_pipe.poll():
                         # prevent pipe hang
                         msg: str = sensors_pipe.recv()
                         if msg.startswith('US'):
                             dist = int(msg.split(':')[1].strip())
-                            if dist < 10 and (curr_cmd == 'forward' or
+                            self.distance.value = dist
+                            if not self.code_process and dist < 15 and (curr_cmd == 'forward' or
                                               curr_cmd == 'off road'):
                                 ind = 0
                                 curr_cmd = 'stand'
                                 server_pipe.send('command: stand')
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(e)
                 try:
                     self.angles = self.paths[curr_cmd][ind]
                     ind = (ind + 1) % len(self.paths[curr_cmd])
