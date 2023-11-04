@@ -30,7 +30,7 @@ class Controller():
         self.points = {
             'lie': [[[0.0, -4.0, 0.0] for _ in range(4)]],
             'sit': [[[-5.0, -17.5, 0.0] for _ in range(2)]
-                    + [[0.0, -4.0, 0.0] for _ in range(2)]],
+                    + [[0.0, -9.0, 0.0] for _ in range(2)]],
             'stand': [[[0.0, -15.0, 0.0] for _ in range(4)]],
             'forward': self.define_forward_walk(0.0, 1.0),
             'backward': self.define_backward_walk(0.0, 1.0),
@@ -524,12 +524,12 @@ class Controller():
         ], axes=[1, 0, 2])
 
     def define_emote3(self):
-        return [[[10.0, -6.0, 0.0], [-8.0, -15.0, -4.0]]
-                + [[0.0, -10.0, 0.0], [0.0, -4.0, 0.0]]]
+        return [[[15.0, -5.0, 0.0], [-8.0, -16.0, -4.0]]
+                + [[0.0, -10.0, 0.0], [0.0, -9.0, 0.0]]]
 
     def define_emote4(self):
-        return [[[-8.0, -15.0, -4.0], [10.0, -4.0, 0.0]]
-                + [[0.0, -4.0, 0.0], [0.0, -10.0, 0.0]]]
+        return [[[-8.0, -16.0, -4.0], [15.0, -5.0, 0.0]]
+                + [[0.0, -9.0, 0.0], [0.0, -10.0, 0.0]]]
 
     def calc_paths(self, command=None):
         if command:

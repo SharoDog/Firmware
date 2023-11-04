@@ -78,24 +78,25 @@ class Sensors:
             self.Q = Quaternion(self.filter.Q[-1])
             self.acc = acc[-1]
             self.gyro = gyro[-1]
-            uart = serial.Serial('/dev/serial0', baudrate=9600, timeout=3000)
-            self.gps = adafruit_gps.GPS(uart)
+            #  uart = serial.Serial('/dev/serial0', baudrate=9600, timeout=3000)
+            # self.gps = adafruit_gps.GPS(uart)
             # only minimal info
-            self.gps.send_command(
-                b'PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0')
-            self.gps.send_command(b'PMTK220,1000')
-            self.ultrasonic = serial.Serial(
-                '/dev/ttyUSB0', baudrate=115200, timeout=100)
+            #  self.gps.send_command(
+                #  b'PMTK314,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0')
+            #  self.gps.send_command(b'PMTK220,1000')
 
     def transform_acc_or_gyro_data(self, data):
         return [data[1], data[0], data[2]]
 
     def run(self, server_pipe: Connection, controller_pipe: Connection):
+        self.ultrasonic = serial.Serial(
+            '/dev/serial0', baudrate=115200, timeout=0.1)
+        self.ultrasonic.reset_input_buffer()
         try:
             while True:
                 if self.enabled:
                     if not self.mock:
-                        self.gps.update()
+                        #  self.gps.update()
                         if self.imu_ready.value:
                             self.acc = self.transform_acc_or_gyro_data(
                                 np.fromiter(self.imu.acceleration,
@@ -115,17 +116,20 @@ class Sensors:
                         ))
                         server_pipe.send(
                             'IMU: ' + ';'.join(map(str, np.degrees(self.Q.to_angles()))))
-                        if self.gps.has_fix:
-                            server_pipe.send(
-                                f'GPS: {self.gps.latitude};{self.gps.longitude};{self.gps.altitude_m + 440}')
-                        else:
-                            server_pipe.send(
-                                'GPS: ' + ';'.join(map(str, [None, None, None])))
+                        #  if self.gps.has_fix:
+                            #  server_pipe.send(
+                                #  f'GPS: {self.gps.latitude};{self.gps.longitude};{self.gps.altitude_m + 440}')
+                        #  else:
+                        server_pipe.send(
+                            'GPS: ' + ';'.join(map(str, [None, None, None])))
                         if self.ultrasonic.readable():
-                            dist = self.ultrasonic.readline().decode().strip()
-                            if dist and int(dist) != 0:
-                                controller_pipe.send(
-                                    f'US: {dist}')
+                            try:
+                                dist = self.ultrasonic.readline().decode().strip()
+                                if dist and int(dist) != 0:
+                                    controller_pipe.send(
+                                        f'US: {dist}')
+                            except UnicodeDecodeError:
+                                pass
                     else:
                         # mock IMU and GPS
                         server_pipe.send(

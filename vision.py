@@ -52,7 +52,7 @@ class Vision():
                     frame = cv2.resize(original_frame, (320, 240), interpolation=cv2.INTER_AREA)
                 else:
                     frame = self.camera.capture_array()
-                    original_frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
+                    original_frame = cv2.flip(cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB), 0)
                     frame = cv2.resize(original_frame, (320, 240), interpolation=cv2.INTER_AREA)
                 # CV
                 self.face_detector.setInputSize((320, 240))
