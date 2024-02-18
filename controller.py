@@ -26,7 +26,7 @@ class Controller():
         self.steering = 0.0
         self.angles = [[0, 0, math.radians(self.femur_initial), math.radians(
             self.tibia_initial), 0] for i in range(4)]
-        self.default_steps = 25
+        self.default_steps = 30
         self.points = {
             'lie': [[[0.0, -4.0, 0.0] for _ in range(4)]],
             'sit': [[[-5.0, -17.5, 0.0] for _ in range(2)]
@@ -474,7 +474,7 @@ class Controller():
                 + [[0.0, -18.0, 1.0], [0.0, -18.0, 1.0]]]
 
     def define_emote2(self):
-        num_points = 25
+        num_points = self.default_steps
         # sidestep
         front_line_nodes = np.asfortranarray([
             [-2.0, -2.0],

@@ -89,9 +89,10 @@ class Sensors:
         return [data[1], data[0], data[2]]
 
     def run(self, server_pipe: Connection, controller_pipe: Connection):
-        self.ultrasonic = serial.Serial(
-            '/dev/serial0', baudrate=115200, timeout=0.1)
-        self.ultrasonic.reset_input_buffer()
+        if not self.mock:
+            self.ultrasonic = serial.Serial(
+                '/dev/serial0', baudrate=115200, timeout=0.1)
+            self.ultrasonic.reset_input_buffer()
         try:
             while True:
                 if self.enabled:
@@ -135,10 +136,11 @@ class Sensors:
                         server_pipe.send(
                             'IMU: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
                         server_pipe.send(
-                            'GPS: ' + ';'.join(map(str, [None, None, None])))
+                            'GPS: ' + ';'.join(map(str, [0.0, 0.0, 0.0])))
                         time.sleep(0.5)
                 if server_pipe.readable and server_pipe.poll():
                     self.enabled = bool(server_pipe.recv())
+                    print(self.enabled)
 
                 time.sleep(0.02)
 
