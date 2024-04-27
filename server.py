@@ -12,7 +12,7 @@ class Server():
         self.socket.setblocking(False)
         self.conn = None
 
-    def listen(self, controller_pipe: Connection, sensors_pipe: Connection,
+    def listen(self, controller_pipe: Connection, sensors_pipe: Connection, speech_pipe: Connection,
                vision_pipe: Connection):
         try:
             self.socket.listen(1)
@@ -36,6 +36,9 @@ class Server():
                                 break
                             if data.startswith('sensors'):
                                 sensors_pipe.send(
+                                    data.split(':')[1].strip() == 'True')
+                            elif data.startswith('speech'):
+                                speech_pipe.send(
                                     data.split(':')[1].strip() == 'True')
                             else:
                                 controller_pipe.send(data)

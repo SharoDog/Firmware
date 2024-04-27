@@ -90,8 +90,9 @@ class Sensors:
 
     def run(self, server_pipe: Connection, controller_pipe: Connection):
         if not self.mock:
+            pass
             self.ultrasonic = serial.Serial(
-                '/dev/serial0', baudrate=115200, timeout=0.1)
+                '/dev/serial0', baudrate=115200, timeout=0)
             self.ultrasonic.reset_input_buffer()
         try:
             while True:
@@ -125,11 +126,12 @@ class Sensors:
                             'GPS: ' + ';'.join(map(str, [None, None, None])))
                         if self.ultrasonic.readable():
                             try:
-                                dist = self.ultrasonic.readline().decode().strip()
-                                if dist and int(dist) != 0:
-                                    controller_pipe.send(
-                                        f'US: {dist}')
-                            except UnicodeDecodeError:
+                                self.ultrasonic.readline().decode('utf-8')
+                                #  dist = self.ultrasonic.readline().decode().strip()
+                                #  if dist and int(dist) != 0:
+                                    #  controller_pipe.send(
+                                        #  f'US: {dist}')
+                            except:
                                 pass
                     else:
                         # mock IMU and GPS
@@ -141,8 +143,8 @@ class Sensors:
                 if server_pipe.readable and server_pipe.poll():
                     self.enabled = bool(server_pipe.recv())
                     print(self.enabled)
-
                 time.sleep(0.02)
 
         except KeyboardInterrupt:
             print('Killing sensors...')
+            self.ultrasonic.close()

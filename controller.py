@@ -26,7 +26,7 @@ class Controller():
         self.steering = 0.0
         self.angles = [[0, 0, math.radians(self.femur_initial), math.radians(
             self.tibia_initial), 0] for i in range(4)]
-        self.default_steps = 30
+        self.default_steps = 25
         self.points = {
             'lie': [[[0.0, -4.0, 0.0] for _ in range(4)]],
             'sit': [[[-5.0, -17.5, 0.0] for _ in range(2)]
@@ -585,7 +585,7 @@ class Controller():
             'counterclockwise'] = self.define_rotate(False, speed)
         self.calc_paths('counterclockwise')
 
-    def run(self, server_pipe: Connection, sensors_pipe: Connection):
+    def run(self, server_pipe: Connection, sensors_pipe: Connection, speech_pipe: Connection):
         try:
             ind = 0
             curr_cmd = 'lie'
@@ -614,6 +614,20 @@ class Controller():
                         elif not self.code_process.is_alive():
                             self.code_process = None
                             server_pipe.send('codestop')
+                    if speech_pipe.readable and speech_pipe.poll():
+                        msg: str = speech_pipe.recv()
+                        print(msg)
+                        new_cmd = msg
+                        if self.code_process and self.code_process.is_alive():
+                            self.code_process.kill()
+                            self.code_process.join()
+                            self.code_process = None
+                            server_pipe.send('codestop')
+                        if curr_cmd != new_cmd and new_cmd in self.paths:
+                            ind = self.transition(
+                                self.angles, self.paths[new_cmd])
+                            curr_cmd = new_cmd
+                            server_pipe.send('command: ' + new_cmd)
                     if server_pipe.readable and server_pipe.poll():
                         msg: str = server_pipe.recv()
                         if msg.startswith('code:'): 
